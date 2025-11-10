@@ -82,8 +82,10 @@ func buildWfmServiceGoalImpact(wfmServiceGoalImpacts []interface{}) *platformcli
 			continue
 		}
 
-		resourcedata.BuildSDKFloat64ValueIfNotNil(&sdkWfmServiceGoalImpact.IncreaseByPercent, wfmServiceGoalImpactsMap, "increase_by_percent")
-		resourcedata.BuildSDKFloat64ValueIfNotNil(&sdkWfmServiceGoalImpact.DecreaseByPercent, wfmServiceGoalImpactsMap, "decrease_by_percent")
+		increaseByPercent := wfmServiceGoalImpactsMap["increase_by_percent"].(float64)
+		sdkWfmServiceGoalImpact.IncreaseByPercent = &increaseByPercent
+		decreaseByPercent := wfmServiceGoalImpactsMap["decrease_by_percent"].(float64)
+		sdkWfmServiceGoalImpact.DecreaseByPercent = &decreaseByPercent
 
 		wfmServiceGoalImpactsSlice = append(wfmServiceGoalImpactsSlice, sdkWfmServiceGoalImpact)
 	}
