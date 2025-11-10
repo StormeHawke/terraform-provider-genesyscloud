@@ -33,7 +33,7 @@ func BuildSDKStringValueIfNotNilTransform(field **string, targetMap map[string]i
 	}
 }
 
-// BuildSDKFloat64ValueIfNotNil will read a map and set the string property on an object if the value exists
+// BuildSDKFloat64ValueIfNotNil will read a map and set the float64 property on an object if the value exists
 func BuildSDKFloat64ValueIfNotNil(field **float64, targetMap map[string]interface{}, key string) {
 	if value := targetMap[key].(float64); value != 0.0 {
 		*field = &value
