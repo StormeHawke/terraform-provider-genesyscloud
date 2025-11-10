@@ -33,6 +33,14 @@ func BuildSDKStringValueIfNotNilTransform(field **string, targetMap map[string]i
 	}
 }
 
+// BuildSDKFloat64ValueIfNotNil will read a map and set the string property on an object if the value exists
+func BuildSDKFloat64ValueIfNotNil(field **float64, targetMap map[string]interface{}, key string) {
+	if value := targetMap[key].(float64); value != 0.0 {
+		*field = &value
+	}
+}
+
+
 // BuildSDKInterfaceArrayValueIfNotNil will read a map and use the provided function to read the nested values if the value exists
 func BuildSDKInterfaceArrayValueIfNotNil[T any](field **T, targetMap map[string]interface{}, key string, f func([]interface{}) *T) {
 	if values := targetMap[key]; values != nil {
