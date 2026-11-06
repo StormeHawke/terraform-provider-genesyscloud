@@ -176,6 +176,8 @@ import (
 	buActivityCode "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_activitycode"
 	buPlanningGroup "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_planninggroup"
 	buServiceGoalTemplate "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_servicegoaltemplate"
+	buTimeOffLimit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_timeofflimit"
+	buTimeOffPlan "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_timeoffplan"
 	managementUnit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
 	managementUnitAgents "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_agents"
 	managementUnitWorkPlan "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_workplan"
@@ -384,6 +386,8 @@ func registerResources() {
 	managementUnitAgents.SetRegistrar(regInstance)                         //Registering workforce management management unit agents
 	managementUnitWorkPlan.SetRegistrar(regInstance)                       //Registering workforce management management unit work plan
 	managementUnitWorkPlanRotation.SetRegistrar(regInstance)               //Registering workforce management management unit work plan rotation
+	buTimeOffLimit.SetRegistrar(regInstance)                               //Registering workforce management business unit time off limit
+	buTimeOffPlan.SetRegistrar(regInstance)                                //Registering workforce management business unit time off plan
 	workitemDateBasedRule.SetRegistrar(regInstance)                        //Registering task management datebased rule
 	externalContacts.SetRegistrar(regInstance)                             //Registering external contacts
 	externalUser.SetRegistrar(regInstance)                                 //Registering external user identity
