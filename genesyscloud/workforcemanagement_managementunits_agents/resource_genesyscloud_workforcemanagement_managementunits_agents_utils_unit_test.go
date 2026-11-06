@@ -246,3 +246,23 @@ func TestUnitApplyAgentsSendsLargeMovesAsOneRequest(t *testing.T) {
 		t.Errorf("expected the 250 schedulable updates in 3 batches of at most 100, got %d", len(api.updates))
 	}
 }
+
+func TestUnitApplyAgentsSplitsMovesAboveTheMoveLimit(t *testing.T) {
+	users := make([]string, 3200)
+	for i := range users {
+		users[i] = fmt.Sprintf("user-%04d", i)
+	}
+	api := &fakeApi{members: nil}
+
+	diagErr := applyAgents(context.Background(), api.proxy("mu-1"), "mu-1", users, nil, nil, nil)
+	if diagErr != nil {
+		t.Fatalf("unexpected error: %v", diagErr)
+	}
+	if len(api.movedIn) != 3 || len(api.movedIn[0]) != 1500 || len(api.movedIn[1]) != 1500 || len(api.movedIn[2]) != 200 {
+		sizes := make([]int, len(api.movedIn))
+		for i, batch := range api.movedIn {
+			sizes[i] = len(batch)
+		}
+		t.Errorf("expected move requests of 1500, 1500 and 200 users, got %v", sizes)
+	}
+}

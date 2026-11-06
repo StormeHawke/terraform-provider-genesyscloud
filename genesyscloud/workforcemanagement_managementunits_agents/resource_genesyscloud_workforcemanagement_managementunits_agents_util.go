@@ -13,9 +13,13 @@ import (
 )
 
 const (
+	// moveBatchSize is the maximum number of users sent per move request, which the service prefers over many small requests.
+	// The service rejects a move with more users than the organization's agents.per.management.unit.max limit, whose only allowed
+	// values are 1500 (the default) and 2000. 1500 is therefore valid for every organization, and an organization that raised its limit
+	// only needs one extra request for a larger move, so the limit is not looked up.
+	moveBatchSize = 1500
 	// scheduleUpdateBatchSize is the number of agents sent per update of the schedulable flag. The update has no documented limit,
-	// so it stays conservative. Moves are not batched: they are sent as one request per direction, which the service prefers over many
-	// small ones, and the service rejects a move that has more users than the organization's AgentsPerManagementUnit limit (default 1500, maximum 2000).
+	// so it stays conservative.
 	scheduleUpdateBatchSize = 100
 	// schedulableReadConcurrency bounds the parallel per-agent reads. The api has no public route that lists agent configuration, and
 	// reading one agent is rate limited to 60 requests per minute per user per organization, so reading every agent of a large

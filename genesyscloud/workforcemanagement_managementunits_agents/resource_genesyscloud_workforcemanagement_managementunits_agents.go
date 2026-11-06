@@ -197,14 +197,16 @@ func applyAgents(ctx context.Context, proxy *managementUnitAgentsProxy, manageme
 	return updateSchedulable(ctx, proxy, managementUnitId, buildScheduleUpdates(makeSchedulable, makeUnschedulable))
 }
 
-// moveAgents moves all of the users into the destination management unit, or out of their management unit when the destination is nil, in a single request
+// moveAgents moves the users into the destination management unit, or out of their management unit when the destination is nil, in as few requests as the move limit allows
 func moveAgents(ctx context.Context, proxy *managementUnitAgentsProxy, userIds []string, destinationManagementUnitId *string) diag.Diagnostics {
-	response, resp, err := proxy.moveAgents(ctx, userIds, destinationManagementUnitId)
-	if err != nil {
-		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to move agents: %s", err), resp)
-	}
-	if resultErr := checkMoveResults(response); resultErr != nil {
-		return util.BuildDiagnosticError(ResourceType, resultErr.Error(), resultErr)
+	for _, batch := range chunkIds(userIds, moveBatchSize) {
+		response, resp, err := proxy.moveAgents(ctx, batch, destinationManagementUnitId)
+		if err != nil {
+			return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to move agents: %s", err), resp)
+		}
+		if resultErr := checkMoveResults(response); resultErr != nil {
+			return util.BuildDiagnosticError(ResourceType, resultErr.Error(), resultErr)
+		}
 	}
 	return nil
 }
@@ -268,4 +270,16 @@ func waitForAgentsRemoved(ctx context.Context, proxy *managementUnitAgentsProxy,
 		}
 		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("management unit %s still has agents that should have been removed", managementUnitId), resp))
 	})
+}
+
+func chunkIds(ids []string, size int) [][]string {
+	var chunks [][]string
+	for i := 0; i < len(ids); i += size {
+		end := i + size
+		if end > len(ids) {
+			end = len(ids)
+		}
+		chunks = append(chunks, ids[i:end])
+	}
+	return chunks
 }
