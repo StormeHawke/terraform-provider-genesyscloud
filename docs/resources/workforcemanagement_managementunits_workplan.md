@@ -1,0 +1,201 @@
+---
+page_title: "genesyscloud_workforcemanagement_managementunits_workplan Resource - terraform-provider-genesyscloud"
+subcategory: ""
+description: |-
+  Genesys Cloud workforce management management unit work plan, with its shifts and the agents assigned to it. An agent can only have one work plan, so assigning an agent to this work plan unassigns the agent from their current work plan. An enabled work plan is validated by Genesys Cloud while planning, so a work plan that would be rejected fails the plan with the validation messages. This needs every value to be known, so a work plan that depends on resources created in the same run is only validated when it is applied.
+---
+# genesyscloud_workforcemanagement_managementunits_workplan (Resource)
+
+<!-- This document is automatically generated. Do not edit manually. Make changes to the schema, examples, or apis.md files in examples/resources/ and run 'make docs' to regenerate. -->
+
+Genesys Cloud workforce management management unit work plan, with its shifts and the agents assigned to it. An agent can only have one work plan, so assigning an agent to this work plan unassigns the agent from their current work plan. An enabled work plan is validated by Genesys Cloud while planning, so a work plan that would be rejected fails the plan with the validation messages. This needs every value to be known, so a work plan that depends on resources created in the same run is only validated when it is applied.
+
+## API Usage
+
+The following Genesys Cloud APIs are used by this resource. Ensure your OAuth Client has been granted the necessary scopes and permissions to perform these operations:
+
+* [GET /api/v2/workforcemanagement/managementunits](https://developer.genesys.cloud/devapps/api-explorer#get-api-v2-workforcemanagement-managementunits)
+* [GET /api/v2/workforcemanagement/managementunits/{managementUnitId}/workplans](https://developer.genesys.cloud/devapps/api-explorer#get-api-v2-workforcemanagement-managementunits--managementUnitId--workplans)
+* [POST /api/v2/workforcemanagement/managementunits/{managementUnitId}/workplans](https://developer.genesys.cloud/devapps/api-explorer#post-api-v2-workforcemanagement-managementunits--managementUnitId--workplans)
+* [DELETE /api/v2/workforcemanagement/managementunits/{managementUnitId}/workplans/{workPlanId}](https://developer.genesys.cloud/devapps/api-explorer#delete-api-v2-workforcemanagement-managementunits--managementUnitId--workplans--workPlanId-)
+* [GET /api/v2/workforcemanagement/managementunits/{managementUnitId}/workplans/{workPlanId}](https://developer.genesys.cloud/devapps/api-explorer#get-api-v2-workforcemanagement-managementunits--managementUnitId--workplans--workPlanId-)
+* [PATCH /api/v2/workforcemanagement/managementunits/{managementUnitId}/workplans/{workPlanId}](https://developer.genesys.cloud/devapps/api-explorer#patch-api-v2-workforcemanagement-managementunits--managementUnitId--workplans--workPlanId-)
+* [POST /api/v2/workforcemanagement/managementunits/{managementUnitId}/workplans/{workPlanId}/validate](https://developer.genesys.cloud/devapps/api-explorer#post-api-v2-workforcemanagement-managementunits--managementUnitId--workplans--workPlanId--validate)
+
+## Permissions and Scopes
+
+The following permissions are required to use this resource:
+
+* `wfm:agent:view`
+* `wfm:publishedSchedule:view`
+* `wfm:schedule:edit`
+* `wfm:schedule:view`
+* `wfm:workPlan:add`
+* `wfm:workPlan:delete`
+* `wfm:workPlan:edit`
+* `wfm:workPlan:view`
+* `wfm:workPlanRotation:view`
+
+The following OAuth scopes are required to use this resource:
+
+* `workforce-management`
+* `workforce-management:readonly`
+
+
+## Example Usage
+
+```terraform
+resource "genesyscloud_workforcemanagement_managementunits_workplan" "weekday_support" {
+  management_unit_id = genesyscloud_workforcemanagement_managementunits.contact_center.id
+  name               = "Weekday Support"
+  enabled            = true
+
+  constrain_weekly_paid_time = true
+  flexible_weekly_paid_time  = false
+  weekly_exact_paid_minutes  = 2400
+  maximum_days               = 5
+  optional_days              = ["Saturday"]
+
+  shifts {
+    name                                   = "Day"
+    days                                   = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+    flexible_start_time                    = false
+    exact_start_time_minutes_from_midnight = 480
+    flexible_paid_time                     = false
+    exact_paid_time_minutes                = 480
+
+    activities {
+      activity_code_id                      = genesyscloud_workforcemanagement_businessunits_activitycode.team_meeting.id
+      length_minutes                        = 30
+      start_time_is_relative_to_shift_start = true
+      flexible_start_time                   = false
+      exact_start_time_minutes              = 240
+      counts_as_paid_time                   = false
+    }
+  }
+
+  agent_ids = [
+    genesyscloud_user.example_user.id,
+  ]
+}
+```
+
+<!-- schema generated by tfplugindocs -->
+## Schema
+
+### Required
+
+- `management_unit_id` (String) The id of the management unit this work plan belongs to. Changing this attribute will cause the work plan to be dropped and recreated.
+- `name` (String) The name of the work plan.
+
+### Optional
+
+- `agent_ids` (Set of String) The ids of the agents assigned to this work plan. This is authoritative for the work plan: agents assigned to it but not listed are unassigned. An agent can only have one work plan, so listing an agent here removes them from their current work plan.
+- `constrain_maximum_consecutive_working_days` (Boolean) Whether to constrain the maximum consecutive working days.
+- `constrain_maximum_consecutive_working_weekends` (Boolean) Whether to constrain the maximum consecutive working weekends.
+- `constrain_maximum_working_weekends_per_planning_period` (Boolean) Whether to constrain the maximum working weekends in the planning period.
+- `constrain_minimum_time_between_shifts` (Boolean) Whether the minimum time between shifts constraint is enabled.
+- `constrain_paid_time_granularity` (Boolean) Whether the paid time granularity of shifts is constrained.
+- `constrain_weekly_paid_time` (Boolean) Whether the weekly paid time constraint is enabled.
+- `enabled` (Boolean) Whether the work plan is enabled for scheduling. An enabled work plan that fails validation is rejected by Genesys Cloud.
+- `flexible_weekly_paid_time` (Boolean) Whether the weekly paid time constraint is flexible.
+- `maximum_consecutive_working_days` (Number) The maximum number of consecutive days agents are allowed to work. Used if constrain_maximum_consecutive_working_days is true.
+- `maximum_consecutive_working_weekends` (Number) The maximum number of consecutive weekends that agents are allowed to work.
+- `maximum_days` (Number) The maximum number of days in a week that can be scheduled.
+- `maximum_days_off_per_planning_period` (Number) The maximum days off in the planning period.
+- `maximum_paid_minutes_per_planning_period` (Number) The maximum paid minutes in the planning period.
+- `maximum_working_weekends_per_planning_period` (Number) The maximum working weekends in the planning period.
+- `minimum_consecutive_non_working_minutes_per_week` (Number) The minimum consecutive non working minutes per week that agents are allowed to have off.
+- `minimum_days_off_per_planning_period` (Number) The minimum days off in the planning period.
+- `minimum_paid_minutes_per_planning_period` (Number) The minimum paid minutes in the planning period.
+- `minimum_shift_start_distance_minutes` (Number) The minimum duration in minutes between the start times of two consecutive working days.
+- `minimum_time_between_shifts_minutes` (Number) The minimum time between shifts in minutes. Used if constrain_minimum_time_between_shifts is true.
+- `minimum_working_days_per_week` (Number) The minimum number of days agents must work per week.
+- `optional_days` (Set of String) The optional days to schedule for this work plan. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.
+- `paid_time_granularity_minutes` (Number) The granularity in minutes allowed for the paid time of a shift. Used if constrain_paid_time_granularity is true.
+- `shift_start_variance_period` (String) The period over which the maximum shift start variance is applied. Valid values: Weekly, PlanningPeriod.
+- `shift_start_variance_type` (String) Ensures an agent starts each workday within a threshold. Valid values: ShiftStart, ShiftStartAndPaidDuration.
+- `shift_start_variances` (Block Set) The variance in minutes among the start times of shifts, per set of days. (see [below for nested schema](#nestedblock--shift_start_variances))
+- `shifts` (Block List) The shifts of this work plan. Shifts are matched to the shifts already on the work plan by name, so names must be unique. Genesys Cloud does not keep shifts in a stable order, so the order of the configuration is kept but has no meaning. (see [below for nested schema](#nestedblock--shifts))
+- `weekly_exact_paid_minutes` (Number) The exact weekly paid time in minutes. Used if flexible_weekly_paid_time is false.
+- `weekly_maximum_paid_minutes` (Number) The maximum weekly paid time in minutes. Used if flexible_weekly_paid_time is true.
+- `weekly_minimum_paid_minutes` (Number) The minimum weekly paid time in minutes. Used if flexible_weekly_paid_time is true.
+
+### Read-Only
+
+- `id` (String) The ID of this resource.
+- `valid` (Boolean) Whether the work plan is valid.
+
+<a id="nestedblock--shift_start_variances"></a>
+### Nested Schema for `shift_start_variances`
+
+Required:
+
+- `applicable_days` (Set of String) The days for which the shift start variance is configured. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.
+- `max_shift_start_variance_minutes` (Number) The maximum variance in minutes across shift starts.
+
+
+<a id="nestedblock--shifts"></a>
+### Nested Schema for `shifts`
+
+Required:
+
+- `name` (String) The name of the shift. Shift names must be unique within a work plan, because shifts are matched to existing shifts by name.
+
+Optional:
+
+- `activities` (Block List) The activities of this shift. Genesys Cloud does not keep activities in a stable order, so they are compared as a group: when they differ from what is configured, all of the shift's activities are replaced. (see [below for nested schema](#nestedblock--shifts--activities))
+- `constrain_contiguous_work_time` (Boolean) Whether the contiguous work time constraint for the shift is enabled.
+- `constrain_day_off` (Boolean) Whether the day off rule is enabled.
+- `constrain_earliest_stop_time` (Boolean) Whether the earliest stop time constraint for the shift is enabled.
+- `constrain_latest_stop_time` (Boolean) Whether the latest stop time constraint for the shift is enabled.
+- `day_off_rule` (String) The day off rule for agents to have the next or previous day off. Used if constrain_day_off is true. Valid values: NextDayOff, PreviousDayOff.
+- `days` (Set of String) The days of the week this shift applies to. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.
+- `earliest_start_time_minutes_from_midnight` (Number) The earliest start time of the shift as minutes from midnight. Used if flexible_start_time is true.
+- `earliest_stop_time_minutes_from_midnight` (Number) The earliest time the shift can end, as minutes from midnight. Used if constrain_earliest_stop_time is true.
+- `exact_paid_time_minutes` (Number) The exact paid time in minutes of the shift. Used if flexible_paid_time is false.
+- `exact_start_time_minutes_from_midnight` (Number) The exact start time of the shift as minutes from midnight. Used if flexible_start_time is false.
+- `flexible_paid_time` (Boolean) Whether the paid time setting for the shift is flexible.
+- `flexible_start_time` (Boolean) Whether the start time of the shift is flexible.
+- `latest_start_time_minutes_from_midnight` (Number) The latest start time of the shift as minutes from midnight. Used if flexible_start_time is true.
+- `latest_stop_time_minutes_from_midnight` (Number) The latest stop time of the shift as minutes from midnight. Used if constrain_latest_stop_time is true.
+- `maximum_contiguous_work_time_minutes` (Number) The maximum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.
+- `maximum_paid_time_minutes` (Number) The maximum paid time in minutes of the shift. Used if flexible_paid_time is true.
+- `minimum_contiguous_work_time_minutes` (Number) The minimum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.
+- `minimum_paid_time_minutes` (Number) The minimum paid time in minutes of the shift. Used if flexible_paid_time is true.
+- `planning_period_constraints` (Block List, Max: 1) Constraints on the number of times this shift is worked per planning period. (see [below for nested schema](#nestedblock--shifts--planning_period_constraints))
+- `start_increment_minutes` (Number) The increment in minutes that contributes to the different possible start times for the shift. Used if flexible_start_time is true.
+
+<a id="nestedblock--shifts--activities"></a>
+### Nested Schema for `shifts.activities`
+
+Required:
+
+- `activity_code_id` (String) The id of the activity code of this activity. The default activity codes that every management unit has use the id of their category rather than a UUID, so the same id works in every management unit.
+
+Optional:
+
+- `counts_as_contiguous_work_time` (Boolean) Whether the activity duration counts towards contiguous work time.
+- `counts_as_paid_time` (Boolean) Whether the activity is paid.
+- `description` (String) The description of the activity.
+- `earliest_start_time_minutes` (Number) The earliest activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is true.
+- `exact_start_time_minutes` (Number) The exact activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is false.
+- `flexible_start_time` (Boolean) Whether the start time of the activity is flexible.
+- `latest_start_time_minutes` (Number) The latest activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is true.
+- `length_minutes` (Number) The length of the activity in minutes.
+- `maximum_length_from_shift_end_minutes` (Number) The maximum duration in minutes between the end of the activity (for example a break or meal) and the shift end.
+- `minimum_length_from_shift_end_minutes` (Number) The minimum duration in minutes between the end of the activity (for example a break or meal) and the shift end.
+- `minimum_length_from_shift_start_minutes` (Number) The minimum duration in minutes between the shift start and the start of the activity (for example a break or meal).
+- `start_time_increment_minutes` (Number) The increment in minutes that contributes to the different possible start times for the activity.
+- `start_time_is_relative_to_shift_start` (Boolean) Whether the start time of the activity is relative to the start time of the shift it belongs to.
+
+
+<a id="nestedblock--shifts--planning_period_constraints"></a>
+### Nested Schema for `shifts.planning_period_constraints`
+
+Optional:
+
+- `enabled` (Boolean) Whether shifts per planning period are constrained.
+- `maximum_count` (Number) The maximum number of shifts allowed per planning period.
+- `minimum_count` (Number) The minimum number of shifts required per planning period.
+
