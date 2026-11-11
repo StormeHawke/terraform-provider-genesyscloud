@@ -129,58 +129,56 @@ func buildUpdateServiceGoalTemplateRequest(d *schema.ResourceData, metadata *pla
 }
 
 func flattenServiceLevel(serviceLevel *platformclientv2.Buservicelevel) []interface{} {
-	if serviceLevel == nil {
-		return nil
+	block := map[string]interface{}{
+		"include": *serviceLevel.Include,
+		"percent": *serviceLevel.Percent,
+		"seconds": *serviceLevel.Seconds,
 	}
-	block := make(map[string]interface{})
-	resourcedata.SetMapValueIfNotNil(block, "include", serviceLevel.Include)
-	resourcedata.SetMapValueIfNotNil(block, "percent", serviceLevel.Percent)
-	resourcedata.SetMapValueIfNotNil(block, "seconds", serviceLevel.Seconds)
 	return []interface{}{block}
 }
 
 func flattenAverageSpeedOfAnswer(asa *platformclientv2.Buaveragespeedofanswer) []interface{} {
-	if asa == nil {
-		return nil
+	block := map[string]interface{}{
+		"include": *asa.Include,
+		"seconds": *asa.Seconds,
 	}
-	block := make(map[string]interface{})
-	resourcedata.SetMapValueIfNotNil(block, "include", asa.Include)
-	resourcedata.SetMapValueIfNotNil(block, "seconds", asa.Seconds)
 	return []interface{}{block}
 }
 
 func flattenAbandonRate(abandonRate *platformclientv2.Buabandonrate) []interface{} {
-	if abandonRate == nil {
-		return nil
+	block := map[string]interface{}{
+		"include": *abandonRate.Include,
+		"percent": *abandonRate.Percent,
 	}
-	block := make(map[string]interface{})
-	resourcedata.SetMapValueIfNotNil(block, "include", abandonRate.Include)
-	resourcedata.SetMapValueIfNotNil(block, "percent", abandonRate.Percent)
 	return []interface{}{block}
 }
 
 func flattenServiceGoalImpact(impact *platformclientv2.Wfmservicegoalimpact) []interface{} {
-	block := make(map[string]interface{})
-	resourcedata.SetMapValueIfNotNil(block, "increase_by_percent", impact.IncreaseByPercent)
-	resourcedata.SetMapValueIfNotNil(block, "decrease_by_percent", impact.DecreaseByPercent)
+	block := map[string]interface{}{
+		"increase_by_percent": *impact.IncreaseByPercent,
+		"decrease_by_percent": *impact.DecreaseByPercent,
+	}
 	return []interface{}{block}
 }
 
 func flattenServiceGoalImpactSettings(settings *platformclientv2.Wfmservicegoalimpactsettings) []interface{} {
-	block := make(map[string]interface{})
-	resourcedata.SetMapInterfaceArrayWithFuncIfNotNil(block, "service_level", settings.ServiceLevel, flattenServiceGoalImpact)
-	resourcedata.SetMapInterfaceArrayWithFuncIfNotNil(block, "average_speed_of_answer", settings.AverageSpeedOfAnswer, flattenServiceGoalImpact)
-	resourcedata.SetMapInterfaceArrayWithFuncIfNotNil(block, "abandon_rate", settings.AbandonRate, flattenServiceGoalImpact)
+	block := map[string]interface{}{
+		"service_level":           flattenServiceGoalImpact(settings.ServiceLevel),
+		"average_speed_of_answer": flattenServiceGoalImpact(settings.AverageSpeedOfAnswer),
+		"abandon_rate":            flattenServiceGoalImpact(settings.AbandonRate),
+	}
 	return []interface{}{block}
 }
 
+// The impact override is only returned when it is expanded, and is absent otherwise
 func flattenImpactOverride(impactOverride *platformclientv2.Servicegoaltemplateimpactoverride) []interface{} {
 	if impactOverride == nil {
 		return nil
 	}
-	block := make(map[string]interface{})
-	resourcedata.SetMapValueIfNotNil(block, "enabled", impactOverride.Enabled)
-	resourcedata.SetMapInterfaceArrayWithFuncIfNotNil(block, "impact", impactOverride.Impact, flattenServiceGoalImpactSettings)
+	block := map[string]interface{}{
+		"enabled": *impactOverride.Enabled,
+		"impact":  flattenServiceGoalImpactSettings(impactOverride.Impact),
+	}
 	return []interface{}{block}
 }
 
