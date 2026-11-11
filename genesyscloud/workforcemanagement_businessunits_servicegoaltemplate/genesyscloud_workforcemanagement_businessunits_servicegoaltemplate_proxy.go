@@ -126,7 +126,8 @@ func getServiceGoalTemplateIdByNameFn(ctx context.Context, p *serviceGoalTemplat
 	}
 
 	for _, template := range *templates {
-		if template.Name != nil && *template.Name == name && template.Id != nil {
+		// The contract only guarantees the id, not the name
+		if template.Name != nil && *template.Name == name {
 			return *template.Id, resp, false, nil
 		}
 	}

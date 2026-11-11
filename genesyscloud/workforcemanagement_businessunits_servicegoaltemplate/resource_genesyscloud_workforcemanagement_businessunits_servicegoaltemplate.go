@@ -38,7 +38,8 @@ func getAllServiceGoalTemplates(ctx context.Context, clientConfig *platformclien
 	}
 
 	for _, businessUnit := range *businessUnits {
-		if businessUnit.Id == nil {
+		// The business unit list contract does not require the id or the name, and both are needed for the template block label
+		if businessUnit.Id == nil || businessUnit.Name == nil {
 			continue
 		}
 		templates, resp, err := proxy.getAllServiceGoalTemplates(ctx, *businessUnit.Id)
@@ -47,7 +48,8 @@ func getAllServiceGoalTemplates(ctx context.Context, clientConfig *platformclien
 		}
 
 		for _, template := range *templates {
-			if template.Id == nil || template.Name == nil {
+			// The contract only guarantees the id, so a template without a name has no usable block label
+			if template.Name == nil {
 				continue
 			}
 			resources[*businessUnit.Id+"/"+*template.Id] = &resourceExporter.ResourceMeta{BlockLabel: *businessUnit.Name + "_" + *template.Name}
