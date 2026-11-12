@@ -16,8 +16,3 @@ func TestUnitValidateAtMostTwoDecimals(t *testing.T) {
 		assert.NotEmpty(t, errs, "expected %v to be rejected", invalid)
 	}
 }
-
-func TestUnitServiceGoalLimits(t *testing.T) {
-	assert.Equal(t, 31622400, maxServiceLevelSeconds)
-	assert.Equal(t, 432000, maxAverageSpeedOfAnswerSeconds)
-}

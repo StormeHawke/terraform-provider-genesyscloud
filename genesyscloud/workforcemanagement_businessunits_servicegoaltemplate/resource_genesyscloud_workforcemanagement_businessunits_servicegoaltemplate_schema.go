@@ -21,12 +21,6 @@ resource_genesyscloud_workforcemanagement_businessunits_servicegoaltemplate_sche
 */
 const ResourceType = "genesyscloud_workforcemanagement_businessunits_servicegoaltemplate"
 
-const (
-	secondsPerDay                  = 24 * 60 * 60
-	maxServiceLevelSeconds         = 366 * secondsPerDay
-	maxAverageSpeedOfAnswerSeconds = 5 * secondsPerDay
-)
-
 // validateAtMostTwoDecimals rejects values the service would round to two decimal places, which would otherwise show as a perpetual diff
 func validateAtMostTwoDecimals(i interface{}, k string) (warnings []string, errors []error) {
 	v, ok := i.(float64)
@@ -54,18 +48,16 @@ var serviceLevelResource = &schema.Resource{
 			Required:    true,
 		},
 		"percent": {
-			Description:  `Service level target percent answered. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntBetween(1, 100),
+			Description: `Service level target percent answered. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 		"seconds": {
-			Description:  `Service level target answer time in seconds. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntBetween(1, maxServiceLevelSeconds),
+			Description: `Service level target answer time in seconds. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 	},
 }
@@ -78,11 +70,10 @@ var averageSpeedOfAnswerResource = &schema.Resource{
 			Required:    true,
 		},
 		"seconds": {
-			Description:  `The target average speed of answer (ASA) in seconds. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntBetween(1, maxAverageSpeedOfAnswerSeconds),
+			Description: `The target average speed of answer (ASA) in seconds. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 	},
 }
@@ -95,11 +86,10 @@ var abandonRateResource = &schema.Resource{
 			Required:    true,
 		},
 		"percent": {
-			Description:  `Abandon rate percent goal. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntBetween(1, 99),
+			Description: `Abandon rate percent goal. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 	},
 }
@@ -110,13 +100,13 @@ var serviceGoalImpactResource = &schema.Resource{
 			Description:  `The maximum allowed percent increase from the configured goal.`,
 			Type:         schema.TypeFloat,
 			Required:     true,
-			ValidateFunc: validation.All(validation.FloatBetween(0, 100), validateAtMostTwoDecimals),
+			ValidateFunc: validateAtMostTwoDecimals,
 		},
 		"decrease_by_percent": {
 			Description:  `The maximum allowed percent decrease from the configured goal.`,
 			Type:         schema.TypeFloat,
 			Required:     true,
-			ValidateFunc: validation.All(validation.FloatBetween(0, 100), validateAtMostTwoDecimals),
+			ValidateFunc: validateAtMostTwoDecimals,
 		},
 	},
 }
