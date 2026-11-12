@@ -35,9 +35,9 @@ The following OAuth scopes are required to use this resource:
 ## Example Usage
 
 ```terraform
-data "genesyscloud_workforcemanagement_businessunits_servicegoaltemplate" "standard_goals" {
+data "genesyscloud_workforcemanagement_businessunits_servicegoaltemplate" "example_goals" {
   business_unit_id = genesyscloud_workforcemanagement_businessunits.example_with_settings.id
-  name             = "Standard Service Goals"
+  name             = "Example Service Goals"
 }
 ```
 

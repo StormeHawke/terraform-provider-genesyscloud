@@ -81,6 +81,8 @@ func readServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta i
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		template, resp, getErr := proxy.getServiceGoalTemplateById(ctx, businessUnitId, templateId)
 		if getErr != nil {
+			// A 404 is retried because a newly created service goal template may not be readable yet. If it is still missing after the retry timeout, WithRetriesForRead removes it from state.
+			// Other errors are not transient here, since the SDK client already retries 429 and 5xx responses.
 			if util.IsStatus404(resp) {
 				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s: %s", businessUnitId, templateId, getErr), resp))
 			}
