@@ -19,7 +19,8 @@ func SplitServiceGoalTemplateTerraformId(id string) (businessUnitId string, temp
 	return parts[0], parts[1]
 }
 
-func firstBlock(d *schema.ResourceData, key string) (map[string]interface{}, bool) {
+// getFirst returns the only block of a block that is limited to one item, which Terraform stores as a list
+func getFirst(d *schema.ResourceData, key string) (map[string]interface{}, bool) {
 	list, ok := d.Get(key).([]interface{})
 	if !ok || len(list) == 0 {
 		return nil, false
@@ -29,7 +30,7 @@ func firstBlock(d *schema.ResourceData, key string) (map[string]interface{}, boo
 }
 
 func buildServiceLevel(d *schema.ResourceData) *platformclientv2.Buservicelevel {
-	block, ok := firstBlock(d, "service_level")
+	block, ok := getFirst(d, "service_level")
 	if !ok {
 		return nil
 	}
@@ -44,7 +45,7 @@ func buildServiceLevel(d *schema.ResourceData) *platformclientv2.Buservicelevel 
 }
 
 func buildAverageSpeedOfAnswer(d *schema.ResourceData) *platformclientv2.Buaveragespeedofanswer {
-	block, ok := firstBlock(d, "average_speed_of_answer")
+	block, ok := getFirst(d, "average_speed_of_answer")
 	if !ok {
 		return nil
 	}
@@ -56,7 +57,7 @@ func buildAverageSpeedOfAnswer(d *schema.ResourceData) *platformclientv2.Buavera
 }
 
 func buildAbandonRate(d *schema.ResourceData) *platformclientv2.Buabandonrate {
-	block, ok := firstBlock(d, "abandon_rate")
+	block, ok := getFirst(d, "abandon_rate")
 	if !ok {
 		return nil
 	}
@@ -84,7 +85,7 @@ func buildServiceGoalImpact(list []interface{}) *platformclientv2.Wfmservicegoal
 }
 
 func buildImpactOverride(d *schema.ResourceData) *platformclientv2.Servicegoaltemplateimpactoverride {
-	block, ok := firstBlock(d, "impact_override")
+	block, ok := getFirst(d, "impact_override")
 	if !ok {
 		return nil
 	}
