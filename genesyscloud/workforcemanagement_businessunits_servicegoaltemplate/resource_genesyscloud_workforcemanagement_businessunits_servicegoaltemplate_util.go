@@ -19,7 +19,7 @@ func SplitServiceGoalTemplateTerraformId(id string) (businessUnitId string, temp
 	return parts[0], parts[1]
 }
 
-// getFirst returns the only block of a block that is limited to one item, which Terraform stores as a list
+// getFirst returns the first block of a list attribute, and false if the list is empty. Blocks limited to one item are stored as lists, so this reads them.
 func getFirst(d *schema.ResourceData, key string) (map[string]interface{}, bool) {
 	list, ok := d.Get(key).([]interface{})
 	if !ok || len(list) == 0 {
