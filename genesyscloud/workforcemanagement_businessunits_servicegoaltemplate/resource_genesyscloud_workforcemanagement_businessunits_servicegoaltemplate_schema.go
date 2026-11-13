@@ -1,6 +1,9 @@
 package workforcemanagement_businessunits_servicegoaltemplate
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
@@ -18,6 +21,18 @@ resource_genesyscloud_workforcemanagement_businessunits_servicegoaltemplate_sche
 */
 const ResourceType = "genesyscloud_workforcemanagement_businessunits_servicegoaltemplate"
 
+// validateAtMostTwoDecimals rejects values the service would round to two decimal places, which would otherwise show as a perpetual diff
+func validateAtMostTwoDecimals(i interface{}, k string) (warnings []string, errors []error) {
+	v, ok := i.(float64)
+	if !ok {
+		return warnings, []error{fmt.Errorf("expected type of %s to be a number", k)}
+	}
+	if math.Round(v*100)/100 != v {
+		errors = append(errors, fmt.Errorf("expected %s to have at most two decimal places, got %v", k, v))
+	}
+	return warnings, errors
+}
+
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterResource(ResourceType, ResourceServiceGoalTemplate())
@@ -33,18 +48,16 @@ var serviceLevelResource = &schema.Resource{
 			Required:    true,
 		},
 		"percent": {
-			Description:  `Service level target percent answered. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntBetween(0, 100),
+			Description: `Service level target percent answered. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 		"seconds": {
-			Description:  `Service level target answer time in seconds. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntAtLeast(0),
+			Description: `Service level target answer time in seconds. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 	},
 }
@@ -57,11 +70,10 @@ var averageSpeedOfAnswerResource = &schema.Resource{
 			Required:    true,
 		},
 		"seconds": {
-			Description:  `The target average speed of answer (ASA) in seconds. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntAtLeast(0),
+			Description: `The target average speed of answer (ASA) in seconds. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 	},
 }
@@ -74,11 +86,10 @@ var abandonRateResource = &schema.Resource{
 			Required:    true,
 		},
 		"percent": {
-			Description:  `Abandon rate percent goal. Required if include is true.`,
-			Type:         schema.TypeInt,
-			Optional:     true,
-			Computed:     true,
-			ValidateFunc: validation.IntBetween(0, 100),
+			Description: `Abandon rate percent goal. Required if include is true.`,
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Computed:    true,
 		},
 	},
 }
@@ -86,14 +97,16 @@ var abandonRateResource = &schema.Resource{
 var serviceGoalImpactResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"increase_by_percent": {
-			Description: `The maximum allowed percent increase from the configured goal.`,
-			Type:        schema.TypeFloat,
-			Required:    true,
+			Description:  `The maximum allowed percent increase from the configured goal.`,
+			Type:         schema.TypeFloat,
+			Required:     true,
+			ValidateFunc: validateAtMostTwoDecimals,
 		},
 		"decrease_by_percent": {
-			Description: `The maximum allowed percent decrease from the configured goal.`,
-			Type:        schema.TypeFloat,
-			Required:    true,
+			Description:  `The maximum allowed percent decrease from the configured goal.`,
+			Type:         schema.TypeFloat,
+			Required:     true,
+			ValidateFunc: validateAtMostTwoDecimals,
 		},
 	},
 }
