@@ -21,7 +21,6 @@ resource_genesyscloud_workforcemanagement_businessunits_timeoffplan_schema.go ho
 */
 const ResourceType = "genesyscloud_workforcemanagement_businessunits_timeoffplan"
 
-
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterResource(ResourceType, ResourceTimeOffPlan())
