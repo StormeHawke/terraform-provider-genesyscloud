@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
@@ -22,7 +21,6 @@ resource_genesyscloud_workforcemanagement_businessunits_timeoffplan_schema.go ho
 */
 const ResourceType = "genesyscloud_workforcemanagement_businessunits_timeoffplan"
 
-var autoApprovalRules = []string{"Never", "Always", "CheckLimits", "CheckActivityCodes", "CheckLimitsAndActivityCodes"}
 
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(regInstance registrar.Registrar) {
@@ -56,10 +54,9 @@ var overrideDateResource = &schema.Resource{
 			ValidateFunc: validateDate,
 		},
 		"type": {
-			Description:  `What happens to a time off request that conflicts with the date. Valid values: Blocked, ManualReview.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"Blocked", "ManualReview"}, false),
+			Description: `What happens to a time off request that conflicts with the date. Valid values: Blocked, ManualReview.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 	},
 }
@@ -67,22 +64,19 @@ var overrideDateResource = &schema.Resource{
 var hrisTimeOffTypeResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"id": {
-			Description:  `The id of the time off type configured in the integration.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringLenBetween(1, 36),
+			Description: `The id of the time off type configured in the integration.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"name": {
-			Description:  `The name of the time off type configured in the integration.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringLenBetween(1, 100),
+			Description: `The name of the time off type configured in the integration.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"hris_integration_id": {
-			Description:  `The id of the integration.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringLenBetween(1, 36),
+			Description: `The id of the integration.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"secondary_id": {
 			Description: `The secondary id of the time off type, if one is configured in the integration.`,
@@ -147,10 +141,9 @@ func ResourceTimeOffPlan() *schema.Resource {
 				ForceNew:    true,
 			},
 			"name": {
-				Description:  `The name of the time off plan.`,
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringLenBetween(1, 100),
+				Description: `The name of the time off plan.`,
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"enabled": {
 				Description: `Whether agents can use this time off plan. Genesys Cloud enables a time off plan by default.`,
@@ -161,18 +154,16 @@ func ResourceTimeOffPlan() *schema.Resource {
 			"activity_code_ids":            idSet(`The ids of the time off activity codes that are part of this time off plan. The default activity codes have the id of their category.`, ModifyActivityCodeIdStateValue),
 			"restricted_activity_code_ids": idSet(`The ids of the non time off activity codes to check for conflicts, at most 50. They are required when the auto approval rule checks activity codes, and not allowed otherwise. A request is not approved automatically when one of these activity codes is scheduled during the time off.`, ModifyActivityCodeIdStateValue),
 			"auto_approval_rule": {
-				Description:  `The rule for approving time off requests automatically. Genesys Cloud uses Never by default. Valid values: Never, Always, CheckLimits, CheckActivityCodes, CheckLimitsAndActivityCodes. The rules that check limits need count_against_time_off_limits to be true, and the rules that check activity codes need restricted_activity_code_ids.`,
-				Type:         schema.TypeString,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.StringInSlice(autoApprovalRules, false),
+				Description: `The rule for approving time off requests automatically. Genesys Cloud uses Never by default. Valid values: Never, Always, CheckLimits, CheckActivityCodes, CheckLimitsAndActivityCodes. The rules that check limits need count_against_time_off_limits to be true, and the rules that check activity codes need restricted_activity_code_ids.`,
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
 			},
 			"days_before_start_to_expire_from_waitlist": {
-				Description:  `The number of days before the start date of a time off request on which the request expires from the waitlist. Genesys Cloud uses 0 by default.`,
-				Type:         schema.TypeInt,
-				Optional:     true,
-				Computed:     true,
-				ValidateFunc: validation.IntBetween(0, 365),
+				Description: `The number of days before the start date of a time off request on which the request expires from the waitlist. Genesys Cloud uses 0 by default.`,
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Computed:    true,
 			},
 			"auto_publish_approved_time_off_requests": {
 				Description: `Whether newly approved time off requests with activity codes of this time off plan are published to the schedule automatically.`,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -37,18 +38,12 @@ func getAllTimeOffPlans(ctx context.Context, clientConfig *platformclientv2.Conf
 	}
 
 	for _, businessUnit := range *businessUnits {
-		if businessUnit.Id == nil || businessUnit.Name == nil {
-			continue
-		}
 		plans, resp, err := proxy.getAllTimeOffPlans(ctx, *businessUnit.Id)
 		if err != nil {
 			return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get time off plans of business unit %s: %v", *businessUnit.Id, err), resp)
 		}
 
 		for _, plan := range *plans {
-			if plan.Id == nil || plan.Name == nil {
-				continue
-			}
 			resources[*businessUnit.Id+"/"+*plan.Id] = &resourceExporter.ResourceMeta{BlockLabel: *businessUnit.Name + "_" + *plan.Name}
 		}
 	}
@@ -86,17 +81,15 @@ func readTimeOffPlan(ctx context.Context, d *schema.ResourceData, meta interface
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		plan, resp, getErr := proxy.getTimeOffPlanById(ctx, businessUnitId, planId)
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off plan %s: %s", businessUnitId, planId, getErr), resp))
-			}
+			// A 404 is not retried: the time off plan is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off plan %s: %s", businessUnitId, planId, getErr), resp))
 		}
 
 		_ = d.Set("business_unit_id", businessUnitId)
-		setIfNotNil(d, "name", plan.Name)
-		setIfNotNil(d, "enabled", plan.Enabled)
-		setIfNotNil(d, "auto_approval_rule", plan.AutoApprovalRule)
-		setIfNotNil(d, "days_before_start_to_expire_from_waitlist", plan.DaysBeforeStartToExpireFromWaitlist)
+		_ = d.Set("name", *plan.Name)
+		_ = d.Set("enabled", *plan.Enabled)
+		_ = d.Set("auto_approval_rule", *plan.AutoApprovalRule)
+		_ = d.Set("days_before_start_to_expire_from_waitlist", *plan.DaysBeforeStartToExpireFromWaitlist)
 		setIfNotNil(d, "auto_publish_approved_time_off_requests", plan.AutoPublishApprovedTimeOffRequests)
 		setIfNotNil(d, "count_against_time_off_limits", plan.CountAgainstTimeOffLimits)
 
@@ -117,6 +110,10 @@ func readTimeOffPlan(ctx context.Context, d *schema.ResourceData, meta interface
 	})
 }
 
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
+}
+
 func setIfNotNil[T any](d *schema.ResourceData, key string, value *T) {
 	if value != nil {
 		_ = d.Set(key, *value)
@@ -133,10 +130,15 @@ func updateTimeOffPlan(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	// The patch only contains what differs from the current time off plan and carries its version for optimistic locking,
 	// so a version conflict reads the time off plan again and rebuilds the patch.
+	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the patch from the freshly read time off plan.
 	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getTimeOffPlanById(ctx, businessUnitId, planId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off plan %s before update: %s", businessUnitId, planId, err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off plan %s before update: %s", businessUnitId, planId, err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
 		_, resp, err = proxy.updateTimeOffPlan(ctx, businessUnitId, planId, buildUpdateRequest(d.GetRawConfig(), d.Get, current))
@@ -144,7 +146,7 @@ func updateTimeOffPlan(ctx context.Context, d *schema.ResourceData, meta interfa
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update business unit %s time off plan %s: %s", businessUnitId, planId, err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)

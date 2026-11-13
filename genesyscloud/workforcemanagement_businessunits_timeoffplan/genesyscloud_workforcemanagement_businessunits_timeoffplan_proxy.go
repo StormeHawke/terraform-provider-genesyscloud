@@ -111,10 +111,6 @@ func getAllTimeOffPlansFn(ctx context.Context, p *timeOffPlanProxy, businessUnit
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Butimeoffplanresponse{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -126,7 +122,7 @@ func getTimeOffPlanIdByNameFn(ctx context.Context, p *timeOffPlanProxy, business
 	}
 
 	for _, plan := range *plans {
-		if plan.Name != nil && *plan.Name == name && plan.Id != nil {
+		if *plan.Name == name {
 			return *plan.Id, resp, false, nil
 		}
 	}
@@ -154,10 +150,6 @@ func getAllBusinessUnitsFn(ctx context.Context, p *timeOffPlanProxy) (*[]platfor
 	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementBusinessunits("", "")
 	if err != nil {
 		return nil, resp, err
-	}
-
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Businessunitlistitem{}, resp, nil
 	}
 
 	return listing.Entities, resp, nil

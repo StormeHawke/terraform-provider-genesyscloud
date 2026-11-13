@@ -414,7 +414,7 @@ func buildUpdateRequest(config cty.Value, get func(string) interface{}, current 
 	}
 
 	// The version of the time off plan is sent for optimistic locking
-	if current.Metadata != nil && current.Metadata.Version != nil {
+	if current.Metadata != nil {
 		request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: current.Metadata.Version}
 	}
 	return request
@@ -489,9 +489,7 @@ func flattenLimitIds(limits *[]platformclientv2.Butimeofflimitreference) *schema
 	ids := []string{}
 	if limits != nil {
 		for _, limit := range *limits {
-			if limit.Id != nil {
-				ids = append(ids, *limit.Id)
-			}
+			ids = append(ids, *limit.Id)
 		}
 	}
 	return flattenStringSet(ids)
