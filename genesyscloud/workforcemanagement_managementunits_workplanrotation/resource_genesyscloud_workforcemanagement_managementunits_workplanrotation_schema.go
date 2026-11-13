@@ -59,10 +59,9 @@ var rotationAgentResource = &schema.Resource{
 			ValidateFunc: validateDate,
 		},
 		"position": {
-			Description:  `The start position of the agent in the pattern of the rotation. Positions start at 0, which is the first work plan of the pattern.`,
-			Type:         schema.TypeInt,
-			Required:     true,
-			ValidateFunc: validation.IntAtLeast(0),
+			Description: `The start position of the agent in the pattern of the rotation. Positions start at 0, which is the first work plan of the pattern.`,
+			Type:        schema.TypeInt,
+			Required:    true,
 		},
 	},
 }

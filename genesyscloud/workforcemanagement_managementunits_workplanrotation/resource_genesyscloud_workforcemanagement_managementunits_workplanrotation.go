@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -37,18 +38,12 @@ func getAllWorkPlanRotations(ctx context.Context, clientConfig *platformclientv2
 	}
 
 	for _, managementUnit := range *managementUnits {
-		if managementUnit.Id == nil || managementUnit.Name == nil {
-			continue
-		}
 		rotations, resp, err := proxy.getAllWorkPlanRotations(ctx, *managementUnit.Id)
 		if err != nil {
 			return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get work plan rotations of management unit %s: %v", *managementUnit.Id, err), resp)
 		}
 
 		for _, rotation := range *rotations {
-			if rotation.Id == nil || rotation.Name == nil {
-				continue
-			}
 			resources[*managementUnit.Id+"/"+*rotation.Id] = &resourceExporter.ResourceMeta{BlockLabel: *managementUnit.Name + "_" + *rotation.Name}
 		}
 	}
@@ -87,11 +82,15 @@ func disableWorkPlanRotation(ctx context.Context, proxy *workPlanRotationProxy, 
 	return util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanRotationById(ctx, managementUnitId, rotationId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before disabling it: %s", managementUnitId, rotationId, err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before disabling it: %s", managementUnitId, rotationId, err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
 		request := &platformclientv2.Updateworkplanrotationrequest{Enabled: platformclientv2.Bool(false)}
-		if current.Metadata != nil && current.Metadata.Version != nil {
+		if current.Metadata.Version != nil {
 			request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: current.Metadata.Version}
 		}
 		_, resp, err = proxy.updateWorkPlanRotation(ctx, managementUnitId, rotationId, request)
@@ -99,7 +98,7 @@ func disableWorkPlanRotation(ctx context.Context, proxy *workPlanRotationProxy, 
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to disable management unit %s work plan rotation %s: %s", managementUnitId, rotationId, err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -118,28 +117,18 @@ func readWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta inte
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		rotation, resp, getErr := proxy.getWorkPlanRotationById(ctx, managementUnitId, rotationId)
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s: %s", managementUnitId, rotationId, getErr), resp))
-			}
+			// A 404 is not retried: the work plan rotation is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s: %s", managementUnitId, rotationId, getErr), resp))
 		}
 
 		_ = d.Set("management_unit_id", managementUnitId)
-		if rotation.Name != nil {
-			_ = d.Set("name", *rotation.Name)
-		}
-		if rotation.Enabled != nil {
-			_ = d.Set("enabled", *rotation.Enabled)
-		}
-		_ = d.Set("start_date", nil)
+		_ = d.Set("name", *rotation.Name)
+		_ = d.Set("enabled", *rotation.Enabled)
+		_ = d.Set("start_date", rotation.DateRange.StartBusinessUnitDate.Format(dateLayout))
 		_ = d.Set("end_date", nil)
-		if rotation.DateRange != nil {
-			if rotation.DateRange.StartBusinessUnitDate != nil {
-				_ = d.Set("start_date", rotation.DateRange.StartBusinessUnitDate.Format(dateLayout))
-			}
-			if rotation.DateRange.EndBusinessUnitDate != nil {
-				_ = d.Set("end_date", rotation.DateRange.EndBusinessUnitDate.Format(dateLayout))
-			}
+		// Only the end of the date range is nullable
+		if rotation.DateRange.EndBusinessUnitDate != nil {
+			_ = d.Set("end_date", rotation.DateRange.EndBusinessUnitDate.Format(dateLayout))
 		}
 		_ = d.Set("work_plan_ids", flattenWorkPlanIds(rotation.Pattern))
 		_ = d.Set("agents", flattenAgents(rotation.Agents))
@@ -162,7 +151,11 @@ func updateWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta in
 	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanRotationById(ctx, managementUnitId, rotationId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before update: %s", managementUnitId, rotationId, err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before update: %s", managementUnitId, rotationId, err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
 		_, resp, err = proxy.updateWorkPlanRotation(ctx, managementUnitId, rotationId, buildUpdateRequest(d.GetRawConfig(), current))
@@ -170,7 +163,7 @@ func updateWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta in
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update management unit %s work plan rotation %s: %s", managementUnitId, rotationId, err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -181,6 +174,10 @@ func updateWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta in
 
 	log.Printf("Updated management unit %s work plan rotation %s", managementUnitId, rotationId)
 	return readWorkPlanRotation(ctx, d, meta)
+}
+
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteWorkPlanRotation is used by the workforcemanagement_managementunits_workplanrotation resource to delete a work plan rotation from Genesys Cloud
@@ -205,7 +202,7 @@ func deleteWorkPlanRotationAndRemoveAgents(ctx context.Context, proxy *workPlanR
 		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before deleting it: %s", managementUnitId, rotationId, err), resp)
 	}
 
-	if rotation.Agents != nil && len(*rotation.Agents) > 0 {
+	if len(*rotation.Agents) > 0 {
 		if diagErr := removeAgents(ctx, proxy, managementUnitId, rotationId); diagErr != nil {
 			return diagErr
 		}
@@ -229,15 +226,19 @@ func removeAgents(ctx context.Context, proxy *workPlanRotationProxy, managementU
 	return util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanRotationById(ctx, managementUnitId, rotationId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before removing its agents: %s", managementUnitId, rotationId, err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before removing its agents: %s", managementUnitId, rotationId, err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
-		removals := buildAgentUpdates(*orEmpty(current.Agents), nil)
+		removals := buildAgentUpdates(*current.Agents, nil)
 		if len(removals) == 0 {
 			return nil
 		}
 		request := &platformclientv2.Updateworkplanrotationrequest{Agents: &removals}
-		if current.Metadata != nil && current.Metadata.Version != nil {
+		if current.Metadata.Version != nil {
 			request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: current.Metadata.Version}
 		}
 
@@ -246,16 +247,9 @@ func removeAgents(ctx context.Context, proxy *workPlanRotationProxy, managementU
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to remove the agents of management unit %s work plan rotation %s before deleting it: %s", managementUnitId, rotationId, err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
 	})
-}
-
-func orEmpty(agents *[]platformclientv2.Workplanrotationagentresponse) *[]platformclientv2.Workplanrotationagentresponse {
-	if agents == nil {
-		return &[]platformclientv2.Workplanrotationagentresponse{}
-	}
-	return agents
 }
