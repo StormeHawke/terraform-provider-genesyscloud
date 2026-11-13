@@ -118,6 +118,7 @@ import (
 	webdeployConfig "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/webdeployments_configuration"
 	webdeployDeploy "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/webdeployments_deployment"
 	buActivityCode "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_activitycode"
+	buServiceGoalTemplate "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_servicegoaltemplate"
 
 	recordingSettings "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/recording_settings"
 	sttCategory "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/speechandtextanalytics_category"
@@ -247,6 +248,7 @@ func (r *registerTestInstance) registerTestResources() {
 	providerResources[defaultSupportedContent.ResourceType] = defaultSupportedContent.ResourceConversationsMessagingSupportedcontentDefault()
 	providerResources[worktypeStatus.ResourceType] = worktypeStatus.ResourceTaskManagementWorktypeStatus()
 	providerResources[buActivityCode.ResourceType] = buActivityCode.ResourceBusinessUnitActivityCode()
+	providerResources[buServiceGoalTemplate.ResourceType] = buServiceGoalTemplate.ResourceServiceGoalTemplate()
 	providerResources[cMessagingOpen.ResourceType] = cMessagingOpen.ResourceConversationsMessagingIntegrationsOpen()
 	providerResources[externalOrganization.ResourceType] = externalOrganization.ResourceExternalContactsOrganization()
 	providerResources[knowledgeCategory.ResourceType] = knowledgeCategory.ResourceKnowledgeCategory()
@@ -374,6 +376,7 @@ func (r *registerTestInstance) registerTestExporters() {
 	RegisterExporter(cMessagingSettings.ResourceType, cMessagingSettings.ConversationsMessagingSettingsExporter())
 	RegisterExporter(worktypeStatus.ResourceType, worktypeStatus.TaskManagementWorktypeStatusExporter())
 	RegisterExporter(buActivityCode.ResourceType, buActivityCode.BusinessUnitActivityCodeExporter())
+	RegisterExporter(buServiceGoalTemplate.ResourceType, buServiceGoalTemplate.ServiceGoalTemplateExporter())
 	RegisterExporter(supportedContent.ResourceType, supportedContent.SupportedContentExporter())
 	RegisterExporter(defaultSupportedContent.ResourceType, defaultSupportedContent.ConversationsMessagingSupportedcontentDefaultExporter())
 	RegisterExporter(cMessagingOpen.ResourceType, cMessagingOpen.ConversationsMessagingIntegrationsOpenExporter())
