@@ -123,7 +123,7 @@ func buildUpdateServiceGoalTemplateRequest(d *schema.ResourceData, metadata *pla
 		AbandonRate:          buildAbandonRate(d),
 		ImpactOverride:       buildImpactOverride(d),
 	}
-	if metadata != nil && metadata.Version != nil {
+	if metadata.Version != nil {
 		request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: metadata.Version}
 	}
 	return request

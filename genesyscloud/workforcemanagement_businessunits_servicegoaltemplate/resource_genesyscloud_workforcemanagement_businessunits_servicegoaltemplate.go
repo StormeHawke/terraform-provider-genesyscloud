@@ -155,17 +155,6 @@ func deleteServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to delete business unit %s service goal template %s: %s", businessUnitId, templateId, err), resp)
 	}
 
-	// The delete is eventually consistent, so poll until the service goal template is gone (404). The 3 minute cap is the upper bound on that wait before the destroy fails
-	return util.WithRetries(ctx, 180*time.Second, func() *retry.RetryError {
-		_, resp, err := proxy.getServiceGoalTemplateById(ctx, businessUnitId, templateId)
-		if err != nil {
-			if util.IsStatus404(resp) {
-				log.Printf("Deleted business unit %s service goal template %s", businessUnitId, templateId)
-				return nil
-			}
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Error deleting business unit %s service goal template %s: %s", businessUnitId, templateId, err), resp))
-		}
-
-		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("business unit %s service goal template %s still exists", businessUnitId, templateId), resp))
-	})
+	log.Printf("Deleted business unit %s service goal template %s", businessUnitId, templateId)
+	return nil
 }
