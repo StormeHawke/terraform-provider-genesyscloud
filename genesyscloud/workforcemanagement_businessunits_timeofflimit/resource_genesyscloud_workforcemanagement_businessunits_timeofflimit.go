@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -42,24 +43,16 @@ func getAllTimeOffLimits(ctx context.Context, clientConfig *platformclientv2.Con
 	}
 	managementUnitNames := make(map[string]string, len(*managementUnits))
 	for _, managementUnit := range *managementUnits {
-		if managementUnit.Id != nil && managementUnit.Name != nil {
-			managementUnitNames[*managementUnit.Id] = *managementUnit.Name
-		}
+		managementUnitNames[*managementUnit.Id] = *managementUnit.Name
 	}
 
 	for _, businessUnit := range *businessUnits {
-		if businessUnit.Id == nil || businessUnit.Name == nil {
-			continue
-		}
 		limits, resp, err := proxy.getAllTimeOffLimits(ctx, *businessUnit.Id)
 		if err != nil {
 			return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get time off limits of business unit %s: %v", *businessUnit.Id, err), resp)
 		}
 
 		for _, limit := range *limits {
-			if limit.Id == nil {
-				continue
-			}
 			resources[*businessUnit.Id+"/"+*limit.Id] = &resourceExporter.ResourceMeta{BlockLabel: *businessUnit.Name + "_" + limitLabel(limit, managementUnitNames)}
 		}
 	}
@@ -130,16 +123,12 @@ func readTimeOffLimit(ctx context.Context, d *schema.ResourceData, meta interfac
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		limit, resp, getErr := proxy.getTimeOffLimitById(ctx, businessUnitId, limitId)
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off limit %s: %s", businessUnitId, limitId, getErr), resp))
-			}
+			// A 404 is not retried: the time off limit is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off limit %s: %s", businessUnitId, limitId, getErr), resp))
 		}
 
 		_ = d.Set("business_unit_id", businessUnitId)
-		if limit.Granularity != nil {
-			_ = d.Set("granularity", *limit.Granularity)
-		}
+		_ = d.Set("granularity", *limit.Granularity)
 		if limit.FullDayTimeOffStartTime != nil {
 			_ = d.Set("full_day_time_off_start_time", *limit.FullDayTimeOffStartTime)
 		}
@@ -208,9 +197,7 @@ func queryManagedValues(ctx context.Context, proxy *timeOffLimitProxy, businessU
 	for _, chunk := range chunkRanges(managed, maxRangesPerQuery) {
 		values, resp, err := proxy.queryLimitValues(ctx, businessUnitId, limitId, buildQueryRanges(chunk))
 		if err == nil {
-			if values != nil && values.LimitValues != nil {
-				allValues = append(allValues, *values.LimitValues...)
-			}
+			allValues = append(allValues, *values.LimitValues...)
 			continue
 		}
 		if !isOutsideWindow(resp) {
@@ -221,9 +208,7 @@ func queryManagedValues(ctx context.Context, proxy *timeOffLimitProxy, businessU
 			values, resp, err := proxy.queryLimitValues(ctx, businessUnitId, limitId, buildQueryRanges([]valueRange{single}))
 			switch {
 			case err == nil:
-				if values != nil && values.LimitValues != nil {
-					allValues = append(allValues, *values.LimitValues...)
-				}
+				allValues = append(allValues, *values.LimitValues...)
 			case isOutsideWindow(resp):
 				unreadable[single.start.Format(dateLayout)] = true
 			default:
@@ -248,7 +233,11 @@ func setValues(ctx context.Context, proxy *timeOffLimitProxy, businessUnitId str
 		diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 			current, resp, err := proxy.getTimeOffLimitById(ctx, businessUnitId, limitId)
 			if err != nil {
-				return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off limit %s before setting its values: %s", businessUnitId, limitId, err), resp))
+				readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off limit %s before setting its values: %s", businessUnitId, limitId, err), resp)
+				if isTransientStatus(resp) {
+					return retry.RetryableError(readDiagErr)
+				}
+				return retry.NonRetryableError(readDiagErr)
 			}
 
 			_, resp, err = proxy.setLimitValues(ctx, businessUnitId, limitId, buildSetValuesRequest(chunk, current.Metadata))
@@ -256,7 +245,7 @@ func setValues(ctx context.Context, proxy *timeOffLimitProxy, businessUnitId str
 				return nil
 			}
 			builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to set the values of business unit %s time off limit %s: %s", businessUnitId, limitId, err), resp)
-			if util.IsStatus409(resp) {
+			if util.IsStatus409(resp) || isTransientStatus(resp) {
 				return retry.RetryableError(builtDiagErr)
 			}
 			return retry.NonRetryableError(builtDiagErr)
@@ -300,6 +289,10 @@ func verifyValuesSettled(ctx context.Context, proxy *timeOffLimitProxy, business
 		}
 	}
 	return nil
+}
+
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteTimeOffLimit is used by the workforcemanagement_businessunits_timeofflimit resource to delete a time off limit from Genesys Cloud

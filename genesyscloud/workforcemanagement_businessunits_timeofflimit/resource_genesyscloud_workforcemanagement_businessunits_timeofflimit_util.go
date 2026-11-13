@@ -194,7 +194,7 @@ func buildSetValuesRequest(ranges []valueRange, metadata *platformclientv2.Wfmve
 	}
 
 	request := &platformclientv2.Busettimeofflimitvaluesrequest{Values: &values}
-	if metadata != nil && metadata.Version != nil {
+	if metadata != nil {
 		request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: metadata.Version}
 	}
 	return request

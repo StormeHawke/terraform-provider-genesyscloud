@@ -118,10 +118,6 @@ func getAllTimeOffLimitsFn(ctx context.Context, p *timeOffLimitProxy, businessUn
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Butimeofflimitresponse{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -152,10 +148,6 @@ func getAllBusinessUnitsFn(ctx context.Context, p *timeOffLimitProxy) (*[]platfo
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Businessunitlistitem{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -165,10 +157,6 @@ func getAllManagementUnitsFn(ctx context.Context, p *timeOffLimitProxy) (*[]plat
 	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
 	if err != nil {
 		return nil, resp, err
-	}
-
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Managementunit{}, resp, nil
 	}
 
 	return listing.Entities, resp, nil

@@ -44,13 +44,13 @@ var valueRangeResource = &schema.Resource{
 			Description: `The time off limit in minutes for each day of the range, starting on start_date. Use it when the granularity is Daily. A day without a limit has a value of 0. A range covers at most 366 days.`,
 			Type:        schema.TypeList,
 			Optional:    true,
-			Elem:        &schema.Schema{Type: schema.TypeInt, ValidateFunc: validation.IntAtLeast(0)},
+			Elem:        &schema.Schema{Type: schema.TypeInt},
 		},
 		"limit_minutes_per_fifteen_minutes": {
 			Description: `The time off limit in minutes for each fifteen minute interval of the range, starting at midnight of start_date, 96 intervals per day. Use it when the granularity is FifteenMinutes. A range covers at most 366 days.`,
 			Type:        schema.TypeList,
 			Optional:    true,
-			Elem:        &schema.Schema{Type: schema.TypeInt, ValidateFunc: validation.IntAtLeast(0)},
+			Elem:        &schema.Schema{Type: schema.TypeInt},
 		},
 	},
 }
@@ -91,11 +91,10 @@ func ResourceTimeOffLimit() *schema.Resource {
 				ExactlyOneOf: []string{"management_unit_id", "staffing_group_id"},
 			},
 			"granularity": {
-				Description:  `The granularity of the time off limit. Valid values: Daily, FifteenMinutes. Changing this attribute will cause the time off limit to be dropped and recreated.`,
-				Type:         schema.TypeString,
-				Required:     true,
-				ForceNew:     true,
-				ValidateFunc: validation.StringInSlice([]string{granularityDaily, granularityFifteenMinutes}, false),
+				Description: `The granularity of the time off limit. Valid values: Daily, FifteenMinutes. Changing this attribute will cause the time off limit to be dropped and recreated.`,
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
 			},
 			"full_day_time_off_start_time": {
 				Description:  `The start time, in the format HH:mm, of the full day time off requests that count against this time off limit. It can only be set when the granularity is FifteenMinutes. Changing this attribute will cause the time off limit to be dropped and recreated.`,
