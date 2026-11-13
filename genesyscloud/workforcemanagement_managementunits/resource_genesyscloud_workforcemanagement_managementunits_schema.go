@@ -18,12 +18,6 @@ resource_genesyscloud_workforcemanagement_managementunits_schema.go holds four f
 */
 const ResourceType = "genesyscloud_workforcemanagement_managementunits"
 
-var (
-	daysOfWeek         = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
-	activityCategories = []string{"OnQueueWork", "Break", "Meal", "Meeting", "OffQueueWork", "TimeOff", "Training", "Unavailable"}
-	tradeViolationRule = []string{"Allow", "Disallow", "AdminReview"}
-)
-
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterResource(ResourceType, ResourceManagementUnit())
@@ -31,24 +25,20 @@ func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterExporter(ResourceType, ManagementUnitExporter())
 }
 
-func optionalInt(description string, validate schema.SchemaValidateFunc) *schema.Schema {
-	return &schema.Schema{Description: description, Type: schema.TypeInt, Optional: true, Computed: true, ValidateFunc: validate}
+func optionalInt(description string) *schema.Schema {
+	return &schema.Schema{Description: description, Type: schema.TypeInt, Optional: true, Computed: true}
 }
 
-func optionalFloat(description string, validate schema.SchemaValidateFunc) *schema.Schema {
-	return &schema.Schema{Description: description, Type: schema.TypeFloat, Optional: true, Computed: true, ValidateFunc: validate}
+func optionalFloat(description string) *schema.Schema {
+	return &schema.Schema{Description: description, Type: schema.TypeFloat, Optional: true, Computed: true}
 }
 
 func optionalBool(description string) *schema.Schema {
 	return &schema.Schema{Description: description, Type: schema.TypeBool, Optional: true, Computed: true}
 }
 
-func optionalString(description string, allowed ...string) *schema.Schema {
-	s := &schema.Schema{Description: description, Type: schema.TypeString, Optional: true, Computed: true}
-	if len(allowed) > 0 {
-		s.ValidateFunc = validation.StringInSlice(allowed, false)
-	}
-	return s
+func optionalString(description string) *schema.Schema {
+	return &schema.Schema{Description: description, Type: schema.TypeString, Optional: true, Computed: true}
 }
 
 func optionalBlock(description string, elem *schema.Resource) *schema.Schema {
@@ -57,9 +47,9 @@ func optionalBlock(description string, elem *schema.Resource) *schema.Schema {
 
 var adherenceResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
-		"severe_alert_threshold_minutes":        optionalInt(`The threshold in minutes where an alert is triggered when an agent is considered severely out of adherence.`, validation.IntAtLeast(0)),
-		"adherence_target_percent":              optionalInt(`Target adherence percentage.`, validation.IntBetween(0, 100)),
-		"adherence_exception_threshold_seconds": optionalInt(`The threshold in seconds for which agents should not be penalized for being momentarily out of adherence.`, validation.IntAtLeast(0)),
+		"severe_alert_threshold_minutes":        optionalInt(`The threshold in minutes where an alert is triggered when an agent is considered severely out of adherence.`),
+		"adherence_target_percent":              optionalInt(`Target adherence percentage.`),
+		"adherence_exception_threshold_seconds": optionalInt(`The threshold in seconds for which agents should not be penalized for being momentarily out of adherence.`),
 		"non_on_queue_activities_equivalent":    optionalBool(`Whether to treat all non-on-queue activities as equivalent for adherence purposes.`),
 		"track_on_queue_activity":               optionalBool(`Whether to track on-queue activities.`),
 		"ignored_activity_categories": {
@@ -67,7 +57,7 @@ var adherenceResource = &schema.Resource{
 			Type:        schema.TypeSet,
 			Optional:    true,
 			Computed:    true,
-			Elem:        &schema.Schema{Type: schema.TypeString, ValidateFunc: validation.StringInSlice(activityCategories, false)},
+			Elem:        &schema.Schema{Type: schema.TypeString},
 		},
 		"ignored_activity_code_ids": {
 			Description: `Activity code ids that are ignored for adherence purposes.`,
@@ -82,9 +72,9 @@ var adherenceResource = &schema.Resource{
 var timeOffResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"submission_range_enforced":         optionalBool(`Whether to enforce a submission range for agent time off requests.`),
-		"submission_range_type":             optionalString(`The type of the submission range. Valid values: Relative, FixedEnd.`, "Relative", "FixedEnd"),
-		"submission_earliest_days_from_now": optionalInt(`The earliest number of days from now for which an agent can submit a time off request. Use negative numbers to indicate days in the past.`, nil),
-		"submission_latest_days_from_now":   optionalInt(`The latest number of days from now for which an agent can submit a time off request.`, nil),
+		"submission_range_type":             optionalString(`The type of the submission range. Valid values: Relative, FixedEnd.`),
+		"submission_earliest_days_from_now": optionalInt(`The earliest number of days from now for which an agent can submit a time off request. Use negative numbers to indicate days in the past.`),
+		"submission_latest_days_from_now":   optionalInt(`The latest number of days from now for which an agent can submit a time off request.`),
 		"submission_latest_date":            optionalString(`The latest date for time off request submission, interpreted in the business unit time zone, in yyyy-MM-dd format.`),
 	},
 }
@@ -92,10 +82,9 @@ var timeOffResource = &schema.Resource{
 var planningPeriodResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"week_count": {
-			Description:  `Planning period length in weeks.`,
-			Type:         schema.TypeInt,
-			Required:     true,
-			ValidateFunc: validation.IntAtLeast(1),
+			Description: `Planning period length in weeks.`,
+			Type:        schema.TypeInt,
+			Required:    true,
 		},
 		"start_date": {
 			Description: `Start date of the planning period in yyyy-MM-dd format.`,
@@ -118,17 +107,16 @@ var monthlyPlanningPeriodResource = &schema.Resource{
 var scheduleVisibilityResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"enabled":      optionalBool(`Whether schedule visibility controls are enabled for this management unit.`),
-		"future_weeks": optionalInt(`The number of weeks into the future that agents can see schedules in this management unit. 0 means the current week.`, validation.IntAtLeast(0)),
+		"future_weeks": optionalInt(`The number of weeks into the future that agents can see schedules in this management unit. 0 means the current week.`),
 	},
 }
 
 var shrinkageOverrideResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"interval_index": {
-			Description:  `Index of the shrinkage override interval. The starting index is 0 and indexes are based on 15 minute intervals for a 7 day week.`,
-			Type:         schema.TypeInt,
-			Required:     true,
-			ValidateFunc: validation.IntAtLeast(0),
+			Description: `Index of the shrinkage override interval. The starting index is 0 and indexes are based on 15 minute intervals for a 7 day week.`,
+			Type:        schema.TypeInt,
+			Required:    true,
 		},
 		"shrinkage_percent": {
 			Description: `Shrinkage override percent.`,
@@ -140,8 +128,8 @@ var shrinkageOverrideResource = &schema.Resource{
 
 var schedulingResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
-		"max_occupancy_percent_for_deferred_work": optionalInt(`Max occupancy percent for deferred work.`, validation.IntBetween(0, 100)),
-		"default_shrinkage_percent":               optionalFloat(`Default shrinkage percent for scheduling.`, nil),
+		"max_occupancy_percent_for_deferred_work": optionalInt(`Max occupancy percent for deferred work.`),
+		"default_shrinkage_percent":               optionalFloat(`Default shrinkage percent for scheduling.`),
 		"shrinkage_overrides": {
 			Description: `Shrinkage overrides for scheduling. Set to an empty list to clear existing overrides.`,
 			Type:        schema.TypeSet,
@@ -151,7 +139,7 @@ var schedulingResource = &schema.Resource{
 		},
 		"planning_period":         optionalBlock(`Planning period settings for scheduling. Only one of planning_period or monthly_planning_period may be defined.`, planningPeriodResource),
 		"monthly_planning_period": optionalBlock(`Monthly planning period settings for scheduling. Only one of planning_period or monthly_planning_period may be defined.`, monthlyPlanningPeriodResource),
-		"start_day_of_weekend":    optionalString(`Start day of the weekend for scheduling.`, daysOfWeek...),
+		"start_day_of_weekend":    optionalString(`Start day of the weekend for scheduling.`),
 		"schedule_visibility":     optionalBlock(`Schedule visibility settings for agents.`, scheduleVisibilityResource),
 	},
 }
@@ -159,16 +147,14 @@ var schedulingResource = &schema.Resource{
 var shiftTradeActivityRuleResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"activity_category": {
-			Description:  `The activity category to which this rule applies. Valid values: OnQueueWork, Break, Meal, Meeting, OffQueueWork, TimeOff, Training, Unavailable.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice(activityCategories, false),
+			Description: `The activity category to which this rule applies. Valid values: OnQueueWork, Break, Meal, Meeting, OffQueueWork, TimeOff, Training, Unavailable.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"action": {
-			Description:  `The action this rule invokes. Valid values: Replace, DoNotAllowTrade, KeepWithSchedule.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"Replace", "DoNotAllowTrade", "KeepWithSchedule"}, false),
+			Description: `The action this rule invokes. Valid values: Replace, DoNotAllowTrade, KeepWithSchedule.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"activity_code_id_replacement": {
 			Description: `The id of the default activity code that replaces activities of the original category. Required if action is Replace.`,
@@ -181,16 +167,14 @@ var shiftTradeActivityRuleResource = &schema.Resource{
 var shiftTradeExternalActivityRuleResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"external_activity_type": {
-			Description:  `The external activity type to which this rule applies. Valid values: ActivityPlan, Coaching, Learning, Opportunity.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"ActivityPlan", "Coaching", "Learning", "Opportunity"}, false),
+			Description: `The external activity type to which this rule applies. Valid values: ActivityPlan, Coaching, Learning, Opportunity.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"action": {
-			Description:  `The action this rule invokes. Valid values: DoNotAllowTrade, KeepWithAgent.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"DoNotAllowTrade", "KeepWithAgent"}, false),
+			Description: `The action this rule invokes. Valid values: DoNotAllowTrade, KeepWithAgent.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"activity_code_id_replacement": {
 			Description: `The id of the default activity code that replaces external activities. Required if action is KeepWithAgent.`,
@@ -205,22 +189,22 @@ var shiftTradingResource = &schema.Resource{
 		"enabled":                           optionalBool(`Whether shift trading is enabled for this management unit.`),
 		"auto_review":                       optionalBool(`Whether automatic shift trade review is enabled according to the rules defined for this management unit.`),
 		"allow_direct_trades":               optionalBool(`Whether direct shift trades between agents are allowed.`),
-		"min_hours_in_future":               optionalInt(`The minimum number of hours in the future that shift trades are allowed.`, validation.IntAtLeast(0)),
-		"unequal_paid":                      optionalString(`How to handle shift trades that involve unequal paid times. Valid values: Allow, Disallow, AdminReview.`, tradeViolationRule...),
-		"one_sided":                         optionalString(`How to handle one-sided shift trades. Valid values: Allow, Disallow, AdminReview.`, tradeViolationRule...),
-		"weekly_min_paid_violations":        optionalString(`How to handle shift trades that violate the weekly minimum paid time constraint. Valid values: Allow, Disallow, AdminReview.`, tradeViolationRule...),
-		"weekly_max_paid_violations":        optionalString(`How to handle shift trades that violate the weekly maximum paid time constraint. Valid values: Allow, Disallow, AdminReview.`, tradeViolationRule...),
+		"min_hours_in_future":               optionalInt(`The minimum number of hours in the future that shift trades are allowed.`),
+		"unequal_paid":                      optionalString(`How to handle shift trades that involve unequal paid times. Valid values: Allow, Disallow, AdminReview.`),
+		"one_sided":                         optionalString(`How to handle one-sided shift trades. Valid values: Allow, Disallow, AdminReview.`),
+		"weekly_min_paid_violations":        optionalString(`How to handle shift trades that violate the weekly minimum paid time constraint. Valid values: Allow, Disallow, AdminReview.`),
+		"weekly_max_paid_violations":        optionalString(`How to handle shift trades that violate the weekly maximum paid time constraint. Valid values: Allow, Disallow, AdminReview.`),
 		"requires_matching_queues":          optionalBool(`Whether to constrain shift trades to agents with matching queues.`),
 		"requires_matching_languages":       optionalBool(`Whether to constrain shift trades to agents with matching languages.`),
 		"requires_matching_skills":          optionalBool(`Whether to constrain shift trades to agents with matching skills.`),
 		"requires_matching_planning_groups": optionalBool(`Whether to constrain shift trades to agents with matching planning groups.`),
 		"external_activity_rule_ignores_activity_category_rule": optionalBool(`Whether external activity rules ignore activity category rules.`),
-		"max_trade_span_weeks":                  optionalInt(`The maximum number of weeks a shift trade can span.`, validation.IntAtLeast(0)),
-		"max_trades_per_agent_per_week":         optionalInt(`The maximum number of shift trades an agent can submit per week.`, validation.IntAtLeast(0)),
-		"min_minutes_between_shifts":            optionalInt(`The minimum number of minutes between shifts.`, validation.IntAtLeast(0)),
-		"planning_period_min_paid_violations":   optionalString(`How to handle shift trades that violate the planning period minimum paid time constraint. Valid values: Allow, Disallow, AdminReview.`, tradeViolationRule...),
-		"planning_period_max_paid_violations":   optionalString(`How to handle shift trades that violate the planning period maximum paid time constraint. Valid values: Allow, Disallow, AdminReview.`, tradeViolationRule...),
-		"min_minutes_between_shifts_violations": optionalString(`How to handle shift trades that violate the minimum minutes between shifts constraint. Valid values: Allow, Disallow, AdminReview.`, tradeViolationRule...),
+		"max_trade_span_weeks":                  optionalInt(`The maximum number of weeks a shift trade can span.`),
+		"max_trades_per_agent_per_week":         optionalInt(`The maximum number of shift trades an agent can submit per week.`),
+		"min_minutes_between_shifts":            optionalInt(`The minimum number of minutes between shifts.`),
+		"planning_period_min_paid_violations":   optionalString(`How to handle shift trades that violate the planning period minimum paid time constraint. Valid values: Allow, Disallow, AdminReview.`),
+		"planning_period_max_paid_violations":   optionalString(`How to handle shift trades that violate the planning period maximum paid time constraint. Valid values: Allow, Disallow, AdminReview.`),
+		"min_minutes_between_shifts_violations": optionalString(`How to handle shift trades that violate the minimum minutes between shifts constraint. Valid values: Allow, Disallow, AdminReview.`),
 		"activity_category_rules": {
 			Description: `Rules that specify what to do with activity categories that are part of a shift in a trade.`,
 			Type:        schema.TypeList,

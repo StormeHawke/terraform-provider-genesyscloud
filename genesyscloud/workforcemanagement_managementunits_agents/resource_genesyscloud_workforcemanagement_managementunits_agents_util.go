@@ -117,20 +117,10 @@ func usersNeedingScheduleUpdate(oldSchedulable []string, oldUnschedulable []stri
 // The api answers a move with 202 and delivers the per-user results through the WfmMoveAgentsComplete event, so the response normally has no
 // results and this only reports what the response does contain. Moves that fail are detected by waiting for the membership to change.
 func checkMoveResults(response *platformclientv2.Moveagentsresponse) error {
-	if response == nil || response.Results == nil {
-		return nil
-	}
-
 	var failures []string
 	for _, result := range *response.Results {
-		userId := "unknown user"
-		if result.User != nil && result.User.Id != nil {
-			userId = *result.User.Id
-		}
-		moveResult := "no result"
-		if result.Result != nil {
-			moveResult = *result.Result
-		}
+		userId := *result.User.Id
+		moveResult := *result.Result
 		if !acceptedMoveResults[moveResult] {
 			failures = append(failures, fmt.Sprintf("%s: %s", userId, moveResult))
 		}
