@@ -211,9 +211,7 @@ func sameDate(a *time.Time, b *time.Time) bool {
 func buildAgentUpdates(current []platformclientv2.Workplanrotationagentresponse, configured []rotationAgent) []platformclientv2.Updateworkplanrotationagentrequest {
 	currentByUser := make(map[string]platformclientv2.Workplanrotationagentresponse, len(current))
 	for _, agent := range current {
-		if agent.User != nil && agent.User.Id != nil {
-			currentByUser[*agent.User.Id] = agent
-		}
+		currentByUser[*agent.User.Id] = agent
 	}
 
 	var updates []platformclientv2.Updateworkplanrotationagentrequest
@@ -221,8 +219,7 @@ func buildAgentUpdates(current []platformclientv2.Workplanrotationagentresponse,
 	for _, agent := range configured {
 		configuredUsers[agent.userId] = true
 		existing, found := currentByUser[agent.userId]
-		if found && existing.DateRange != nil && existing.Position != nil &&
-			sameDate(existing.DateRange.StartBusinessUnitDate, agent.start) && sameDate(existing.DateRange.EndBusinessUnitDate, agent.end) &&
+		if found && sameDate(existing.DateRange.StartBusinessUnitDate, agent.start) && sameDate(existing.DateRange.EndBusinessUnitDate, agent.end) &&
 			agent.position != nil && *existing.Position == *agent.position {
 			continue
 		}
@@ -254,16 +251,12 @@ func buildUpdateRequest(config cty.Value, current *platformclientv2.Workplanrota
 		request.Pattern = &platformclientv2.Workplanpatternrequest{WorkPlanIds: workPlanIds}
 	}
 	if configured := readAgents(config); configured != nil {
-		var existing []platformclientv2.Workplanrotationagentresponse
-		if current.Agents != nil {
-			existing = *current.Agents
-		}
-		if updates := buildAgentUpdates(existing, *configured); len(updates) > 0 {
+		if updates := buildAgentUpdates(*current.Agents, *configured); len(updates) > 0 {
 			request.Agents = &updates
 		}
 	}
 	// The version of the work plan rotation is sent for optimistic locking
-	if current.Metadata != nil && current.Metadata.Version != nil {
+	if current.Metadata.Version != nil {
 		request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: current.Metadata.Version}
 	}
 	return request
@@ -271,37 +264,25 @@ func buildUpdateRequest(config cty.Value, current *platformclientv2.Workplanrota
 
 func flattenAgents(agents *[]platformclientv2.Workplanrotationagentresponse) *schema.Set {
 	flattened := make([]interface{}, 0)
-	if agents != nil {
-		for _, agent := range *agents {
-			if agent.User == nil || agent.User.Id == nil {
-				continue
-			}
-			entry := map[string]interface{}{"user_id": *agent.User.Id}
-			if agent.DateRange != nil {
-				if agent.DateRange.StartBusinessUnitDate != nil {
-					entry["start_date"] = agent.DateRange.StartBusinessUnitDate.Format(dateLayout)
-				}
-				if agent.DateRange.EndBusinessUnitDate != nil {
-					entry["end_date"] = agent.DateRange.EndBusinessUnitDate.Format(dateLayout)
-				}
-			}
-			if agent.Position != nil {
-				entry["position"] = *agent.Position
-			}
-			flattened = append(flattened, entry)
+	for _, agent := range *agents {
+		entry := map[string]interface{}{
+			"user_id":    *agent.User.Id,
+			"start_date": agent.DateRange.StartBusinessUnitDate.Format(dateLayout),
+			"position":   *agent.Position,
 		}
+		// Only the end of the date range is nullable
+		if agent.DateRange.EndBusinessUnitDate != nil {
+			entry["end_date"] = agent.DateRange.EndBusinessUnitDate.Format(dateLayout)
+		}
+		flattened = append(flattened, entry)
 	}
 	return schema.NewSet(schema.HashResource(rotationAgentResource), flattened)
 }
 
 func flattenWorkPlanIds(pattern *platformclientv2.Workplanpatternresponse) []interface{} {
 	ids := make([]interface{}, 0)
-	if pattern != nil && pattern.WorkPlans != nil {
-		for _, workPlan := range *pattern.WorkPlans {
-			if workPlan.Id != nil {
-				ids = append(ids, *workPlan.Id)
-			}
-		}
+	for _, workPlan := range *pattern.WorkPlans {
+		ids = append(ids, *workPlan.Id)
 	}
 	return ids
 }

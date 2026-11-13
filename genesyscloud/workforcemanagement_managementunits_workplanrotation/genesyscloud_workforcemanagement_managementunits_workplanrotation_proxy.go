@@ -111,10 +111,6 @@ func getAllWorkPlanRotationsFn(ctx context.Context, p *workPlanRotationProxy, ma
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Workplanrotationresponse{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -126,7 +122,7 @@ func getWorkPlanRotationIdByNameFn(ctx context.Context, p *workPlanRotationProxy
 	}
 
 	for _, rotation := range *rotations {
-		if rotation.Name != nil && *rotation.Name == name && rotation.Id != nil {
+		if *rotation.Name == name {
 			return *rotation.Id, resp, false, nil
 		}
 	}
@@ -155,10 +151,6 @@ func getAllManagementUnitsFn(ctx context.Context, p *workPlanRotationProxy) (*[]
 	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
 	if err != nil {
 		return nil, resp, err
-	}
-
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Managementunit{}, resp, nil
 	}
 
 	return listing.Entities, resp, nil

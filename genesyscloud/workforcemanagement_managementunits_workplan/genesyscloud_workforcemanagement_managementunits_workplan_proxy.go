@@ -120,10 +120,6 @@ func getAllWorkPlansFn(ctx context.Context, p *workPlanProxy, managementUnitId s
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Workplanlistitemresponse{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -169,10 +165,6 @@ func getAllManagementUnitsFn(ctx context.Context, p *workPlanProxy) (*[]platform
 	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
 	if err != nil {
 		return nil, resp, err
-	}
-
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Managementunit{}, resp, nil
 	}
 
 	return listing.Entities, resp, nil

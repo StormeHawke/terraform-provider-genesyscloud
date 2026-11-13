@@ -1,6 +1,6 @@
-resource "genesyscloud_workforcemanagement_businessunits_servicegoaltemplate" "standard_goals" {
+resource "genesyscloud_workforcemanagement_businessunits_servicegoaltemplate" "example_goals" {
   business_unit_id = genesyscloud_workforcemanagement_businessunits.example_with_settings.id
-  name             = "Standard Service Goals"
+  name             = "Example Service Goals"
 
   service_level {
     include = true

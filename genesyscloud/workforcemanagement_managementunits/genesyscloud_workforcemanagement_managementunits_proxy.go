@@ -112,10 +112,6 @@ func getAllManagementUnitsFn(ctx context.Context, p *managementUnitProxy) (*[]pl
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Managementunit{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -127,7 +123,7 @@ func getManagementUnitIdByNameFn(ctx context.Context, p *managementUnitProxy, na
 	}
 
 	for _, managementUnit := range *managementUnits {
-		if managementUnit.Name != nil && *managementUnit.Name == name && managementUnit.Id != nil {
+		if *managementUnit.Name == name {
 			return *managementUnit.Id, resp, false, nil
 		}
 	}

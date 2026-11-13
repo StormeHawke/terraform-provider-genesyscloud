@@ -90,12 +90,8 @@ func getMembersFn(ctx context.Context, p *managementUnitAgentsProxy, managementU
 	}
 
 	userIds := make([]string, 0)
-	if listing != nil && listing.Entities != nil {
-		for _, user := range *listing.Entities {
-			if user.Id != nil {
-				userIds = append(userIds, *user.Id)
-			}
-		}
+	for _, user := range *listing.Entities {
+		userIds = append(userIds, *user.Id)
 	}
 	return userIds, resp, nil
 }
@@ -129,10 +125,6 @@ func getAllManagementUnitsFn(ctx context.Context, p *managementUnitAgentsProxy) 
 	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
 	if err != nil {
 		return nil, resp, err
-	}
-
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Managementunit{}, resp, nil
 	}
 
 	return listing.Entities, resp, nil

@@ -130,7 +130,13 @@ func TestUnitBuildShiftTradingRules(t *testing.T) {
 
 func TestUnitFlattenTimeOffFormatsDate(t *testing.T) {
 	latest := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
-	flattened := flattenTimeOff(&platformclientv2.Timeoffsettingsresponse{SubmissionLatestDate: &latest})
+	flattened := flattenTimeOff(&platformclientv2.Timeoffsettingsresponse{
+		SubmissionRangeEnforced:       platformclientv2.Bool(true),
+		SubmissionRangeType:           platformclientv2.String("FixedEnd"),
+		SubmissionEarliestDaysFromNow: platformclientv2.Int(1),
+		SubmissionLatestDaysFromNow:   platformclientv2.Int(30),
+		SubmissionLatestDate:          &latest,
+	})
 	if got := flattened[0].(map[string]interface{})["submission_latest_date"]; got != "2026-12-31" {
 		t.Errorf("expected 2026-12-31, got %v", got)
 	}

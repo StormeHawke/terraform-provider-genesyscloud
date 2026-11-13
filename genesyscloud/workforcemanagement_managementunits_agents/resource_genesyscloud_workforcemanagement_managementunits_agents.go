@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -43,9 +44,6 @@ func getAllManagementUnitAgents(ctx context.Context, clientConfig *platformclien
 	}
 
 	for _, managementUnit := range *managementUnits {
-		if managementUnit.Id == nil || managementUnit.Name == nil {
-			continue
-		}
 		members, resp, err := proxy.getMembers(ctx, *managementUnit.Id)
 		if err != nil {
 			return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get agents of management unit %s: %v", *managementUnit.Id, err), resp)
@@ -89,9 +87,7 @@ func readManagementUnitAgents(ctx context.Context, d *schema.ResourceData, meta 
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		members, resp, getErr := proxy.getMembers(ctx, d.Id())
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s: %s", d.Id(), getErr), resp))
-			}
+			// A 404 is not retried: the management unit is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s: %s", d.Id(), getErr), resp))
 		}
 
@@ -211,8 +207,12 @@ func moveAgents(ctx context.Context, proxy *managementUnitAgentsProxy, userIds [
 	return nil
 }
 
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
+}
+
 // updateSchedulable writes the schedulable flag in batches. The api rejects users that are not yet members, so a membership
-// that has not settled is retried.
+// that has not settled is retried. Rate limiting and server errors are transient and are retried too.
 func updateSchedulable(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, updates []platformclientv2.Updatemuagentrequest) diag.Diagnostics {
 	for _, batch := range chunkUpdates(updates, scheduleUpdateBatchSize) {
 		batch := batch
@@ -222,7 +222,7 @@ func updateSchedulable(ctx context.Context, proxy *managementUnitAgentsProxy, ma
 				return nil
 			}
 			builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update agents of management unit %s: %s", managementUnitId, err), resp)
-			if resp != nil && strings.Contains(strings.ToLower(resp.ErrorMessage), "not found") {
+			if isTransientStatus(resp) || (resp != nil && strings.Contains(strings.ToLower(resp.ErrorMessage), "not found")) {
 				return retry.RetryableError(builtDiagErr)
 			}
 			return retry.NonRetryableError(builtDiagErr)
