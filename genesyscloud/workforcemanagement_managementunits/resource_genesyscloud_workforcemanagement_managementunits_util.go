@@ -306,7 +306,7 @@ func buildUpdateManagementUnitRequest(d *schema.ResourceData, metadata *platform
 		settings.ShiftTrading = buildShiftTrading(rawSettings)
 	}
 	// The settings carry the current metadata version for optimistic locking
-	if metadata != nil && metadata.Version != nil {
+	if metadata.Version != nil {
 		settings.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: metadata.Version}
 	}
 	request.Settings = settings
@@ -317,17 +317,14 @@ func flattenAdherence(adherence *platformclientv2.Adherencesettings) []interface
 	if adherence == nil {
 		return nil
 	}
-	block := map[string]interface{}{}
-	setIfNotNil(block, "severe_alert_threshold_minutes", adherence.SevereAlertThresholdMinutes)
-	setIfNotNil(block, "adherence_target_percent", adherence.AdherenceTargetPercent)
-	setIfNotNil(block, "adherence_exception_threshold_seconds", adherence.AdherenceExceptionThresholdSeconds)
-	setIfNotNil(block, "non_on_queue_activities_equivalent", adherence.NonOnQueueActivitiesEquivalent)
-	setIfNotNil(block, "track_on_queue_activity", adherence.TrackOnQueueActivity)
-	if adherence.IgnoredActivityCategories != nil && adherence.IgnoredActivityCategories.Values != nil {
-		block["ignored_activity_categories"] = stringSet(*adherence.IgnoredActivityCategories.Values)
-	}
-	if adherence.IgnoredActivityCodeIds != nil && adherence.IgnoredActivityCodeIds.Values != nil {
-		block["ignored_activity_code_ids"] = stringSet(*adherence.IgnoredActivityCodeIds.Values)
+	block := map[string]interface{}{
+		"severe_alert_threshold_minutes":        *adherence.SevereAlertThresholdMinutes,
+		"adherence_target_percent":              *adherence.AdherenceTargetPercent,
+		"adherence_exception_threshold_seconds": *adherence.AdherenceExceptionThresholdSeconds,
+		"non_on_queue_activities_equivalent":    *adherence.NonOnQueueActivitiesEquivalent,
+		"track_on_queue_activity":               *adherence.TrackOnQueueActivity,
+		"ignored_activity_categories":           stringSet(*adherence.IgnoredActivityCategories.Values),
+		"ignored_activity_code_ids":             stringSet(*adherence.IgnoredActivityCodeIds.Values),
 	}
 	return []interface{}{block}
 }
@@ -336,11 +333,12 @@ func flattenTimeOff(timeOff *platformclientv2.Timeoffsettingsresponse) []interfa
 	if timeOff == nil {
 		return nil
 	}
-	block := map[string]interface{}{}
-	setIfNotNil(block, "submission_range_enforced", timeOff.SubmissionRangeEnforced)
-	setIfNotNil(block, "submission_range_type", timeOff.SubmissionRangeType)
-	setIfNotNil(block, "submission_earliest_days_from_now", timeOff.SubmissionEarliestDaysFromNow)
-	setIfNotNil(block, "submission_latest_days_from_now", timeOff.SubmissionLatestDaysFromNow)
+	block := map[string]interface{}{
+		"submission_range_enforced":         *timeOff.SubmissionRangeEnforced,
+		"submission_range_type":             *timeOff.SubmissionRangeType,
+		"submission_earliest_days_from_now": *timeOff.SubmissionEarliestDaysFromNow,
+		"submission_latest_days_from_now":   *timeOff.SubmissionLatestDaysFromNow,
+	}
 	if timeOff.SubmissionLatestDate != nil {
 		block["submission_latest_date"] = timeOff.SubmissionLatestDate.Format(dateLayout)
 	}
@@ -351,40 +349,33 @@ func flattenScheduling(scheduling *platformclientv2.Schedulingsettingsresponse) 
 	if scheduling == nil {
 		return nil
 	}
-	block := map[string]interface{}{}
-	setIfNotNil(block, "max_occupancy_percent_for_deferred_work", scheduling.MaxOccupancyPercentForDeferredWork)
-	setIfNotNil(block, "default_shrinkage_percent", scheduling.DefaultShrinkagePercent)
-	setIfNotNil(block, "start_day_of_weekend", scheduling.StartDayOfWeekend)
-
 	overrides := make([]interface{}, 0)
-	if scheduling.ShrinkageOverrides != nil && scheduling.ShrinkageOverrides.Values != nil {
-		for _, override := range *scheduling.ShrinkageOverrides.Values {
-			overrideMap := map[string]interface{}{}
-			setIfNotNil(overrideMap, "interval_index", override.IntervalIndex)
-			setIfNotNil(overrideMap, "shrinkage_percent", override.ShrinkagePercent)
-			overrides = append(overrides, overrideMap)
-		}
+	for _, override := range *scheduling.ShrinkageOverrides.Values {
+		overrides = append(overrides, map[string]interface{}{
+			"interval_index":    *override.IntervalIndex,
+			"shrinkage_percent": *override.ShrinkagePercent,
+		})
 	}
-	block["shrinkage_overrides"] = schema.NewSet(schema.HashResource(shrinkageOverrideResource), overrides)
-
+	block := map[string]interface{}{
+		"max_occupancy_percent_for_deferred_work": *scheduling.MaxOccupancyPercentForDeferredWork,
+		"default_shrinkage_percent":               *scheduling.DefaultShrinkagePercent,
+		"start_day_of_weekend":                    *scheduling.StartDayOfWeekend,
+		"shrinkage_overrides":                     schema.NewSet(schema.HashResource(shrinkageOverrideResource), overrides),
+		"schedule_visibility": []interface{}{map[string]interface{}{
+			"enabled":      *scheduling.ScheduleVisibility.Enabled,
+			"future_weeks": *scheduling.ScheduleVisibility.FutureWeeks,
+		}},
+	}
 	if scheduling.PlanningPeriod != nil {
-		planningPeriod := map[string]interface{}{}
-		setIfNotNil(planningPeriod, "week_count", scheduling.PlanningPeriod.WeekCount)
-		if scheduling.PlanningPeriod.StartDate != nil {
-			planningPeriod["start_date"] = scheduling.PlanningPeriod.StartDate.Format(dateLayout)
-		}
-		block["planning_period"] = []interface{}{planningPeriod}
+		block["planning_period"] = []interface{}{map[string]interface{}{
+			"week_count": *scheduling.PlanningPeriod.WeekCount,
+			"start_date": scheduling.PlanningPeriod.StartDate.Format(dateLayout),
+		}}
 	}
-	if scheduling.MonthlyPlanningPeriod != nil && scheduling.MonthlyPlanningPeriod.StartDate != nil {
+	if scheduling.MonthlyPlanningPeriod != nil {
 		block["monthly_planning_period"] = []interface{}{map[string]interface{}{
 			"start_date": scheduling.MonthlyPlanningPeriod.StartDate.Format(dateLayout),
 		}}
-	}
-	if scheduling.ScheduleVisibility != nil {
-		scheduleVisibility := map[string]interface{}{}
-		setIfNotNil(scheduleVisibility, "enabled", scheduling.ScheduleVisibility.Enabled)
-		setIfNotNil(scheduleVisibility, "future_weeks", scheduling.ScheduleVisibility.FutureWeeks)
-		block["schedule_visibility"] = []interface{}{scheduleVisibility}
 	}
 	return []interface{}{block}
 }
@@ -393,48 +384,46 @@ func flattenShiftTrading(shiftTrading *platformclientv2.Shifttradesettings) []in
 	if shiftTrading == nil {
 		return nil
 	}
-	block := map[string]interface{}{}
-	setIfNotNil(block, "enabled", shiftTrading.Enabled)
-	setIfNotNil(block, "auto_review", shiftTrading.AutoReview)
-	setIfNotNil(block, "allow_direct_trades", shiftTrading.AllowDirectTrades)
-	setIfNotNil(block, "min_hours_in_future", shiftTrading.MinHoursInFuture)
-	setIfNotNil(block, "unequal_paid", shiftTrading.UnequalPaid)
-	setIfNotNil(block, "one_sided", shiftTrading.OneSided)
-	setIfNotNil(block, "weekly_min_paid_violations", shiftTrading.WeeklyMinPaidViolations)
-	setIfNotNil(block, "weekly_max_paid_violations", shiftTrading.WeeklyMaxPaidViolations)
-	setIfNotNil(block, "requires_matching_queues", shiftTrading.RequiresMatchingQueues)
-	setIfNotNil(block, "requires_matching_languages", shiftTrading.RequiresMatchingLanguages)
-	setIfNotNil(block, "requires_matching_skills", shiftTrading.RequiresMatchingSkills)
-	setIfNotNil(block, "requires_matching_planning_groups", shiftTrading.RequiresMatchingPlanningGroups)
-	setIfNotNil(block, "external_activity_rule_ignores_activity_category_rule", shiftTrading.ExternalActivityRuleIgnoresActivityCategoryRule)
-	setIfNotNil(block, "max_trade_span_weeks", shiftTrading.MaxTradeSpanWeeks)
-	setIfNotNil(block, "max_trades_per_agent_per_week", shiftTrading.MaxTradesPerAgentPerWeek)
-	setIfNotNil(block, "min_minutes_between_shifts", shiftTrading.MinMinutesBetweenShifts)
-	setIfNotNil(block, "planning_period_min_paid_violations", shiftTrading.PlanningPeriodMinPaidViolations)
-	setIfNotNil(block, "planning_period_max_paid_violations", shiftTrading.PlanningPeriodMaxPaidViolations)
-	setIfNotNil(block, "min_minutes_between_shifts_violations", shiftTrading.MinMinutesBetweenShiftsViolations)
-
-	if shiftTrading.ActivityCategoryRules != nil {
-		rules := make([]interface{}, 0, len(*shiftTrading.ActivityCategoryRules))
-		for _, rule := range *shiftTrading.ActivityCategoryRules {
-			ruleMap := map[string]interface{}{}
-			setIfNotNil(ruleMap, "activity_category", rule.ActivityCategory)
-			setIfNotNil(ruleMap, "action", rule.Action)
-			setIfNotNil(ruleMap, "activity_code_id_replacement", rule.ActivityCodeIdReplacement)
-			rules = append(rules, ruleMap)
+	activityCategoryRules := make([]interface{}, 0, len(*shiftTrading.ActivityCategoryRules))
+	for _, rule := range *shiftTrading.ActivityCategoryRules {
+		ruleMap := map[string]interface{}{
+			"activity_category": *rule.ActivityCategory,
+			"action":            *rule.Action,
 		}
-		block["activity_category_rules"] = rules
+		setIfNotNil(ruleMap, "activity_code_id_replacement", rule.ActivityCodeIdReplacement)
+		activityCategoryRules = append(activityCategoryRules, ruleMap)
 	}
-	if shiftTrading.ExternalActivityRules != nil {
-		rules := make([]interface{}, 0, len(*shiftTrading.ExternalActivityRules))
-		for _, rule := range *shiftTrading.ExternalActivityRules {
-			ruleMap := map[string]interface{}{}
-			setIfNotNil(ruleMap, "external_activity_type", rule.ExternalActivityType)
-			setIfNotNil(ruleMap, "action", rule.Action)
-			setIfNotNil(ruleMap, "activity_code_id_replacement", rule.ActivityCodeIdReplacement)
-			rules = append(rules, ruleMap)
+	externalActivityRules := make([]interface{}, 0, len(*shiftTrading.ExternalActivityRules))
+	for _, rule := range *shiftTrading.ExternalActivityRules {
+		ruleMap := map[string]interface{}{
+			"external_activity_type": *rule.ExternalActivityType,
+			"action":                 *rule.Action,
 		}
-		block["external_activity_rules"] = rules
+		setIfNotNil(ruleMap, "activity_code_id_replacement", rule.ActivityCodeIdReplacement)
+		externalActivityRules = append(externalActivityRules, ruleMap)
+	}
+	block := map[string]interface{}{
+		"enabled":                                               *shiftTrading.Enabled,
+		"auto_review":                                           *shiftTrading.AutoReview,
+		"allow_direct_trades":                                   *shiftTrading.AllowDirectTrades,
+		"min_hours_in_future":                                   *shiftTrading.MinHoursInFuture,
+		"unequal_paid":                                          *shiftTrading.UnequalPaid,
+		"one_sided":                                             *shiftTrading.OneSided,
+		"weekly_min_paid_violations":                            *shiftTrading.WeeklyMinPaidViolations,
+		"weekly_max_paid_violations":                            *shiftTrading.WeeklyMaxPaidViolations,
+		"requires_matching_queues":                              *shiftTrading.RequiresMatchingQueues,
+		"requires_matching_languages":                           *shiftTrading.RequiresMatchingLanguages,
+		"requires_matching_skills":                              *shiftTrading.RequiresMatchingSkills,
+		"requires_matching_planning_groups":                     *shiftTrading.RequiresMatchingPlanningGroups,
+		"max_trade_span_weeks":                                  *shiftTrading.MaxTradeSpanWeeks,
+		"max_trades_per_agent_per_week":                         *shiftTrading.MaxTradesPerAgentPerWeek,
+		"min_minutes_between_shifts":                            *shiftTrading.MinMinutesBetweenShifts,
+		"planning_period_min_paid_violations":                   *shiftTrading.PlanningPeriodMinPaidViolations,
+		"planning_period_max_paid_violations":                   *shiftTrading.PlanningPeriodMaxPaidViolations,
+		"min_minutes_between_shifts_violations":                 *shiftTrading.MinMinutesBetweenShiftsViolations,
+		"external_activity_rule_ignores_activity_category_rule": *shiftTrading.ExternalActivityRuleIgnoresActivityCategoryRule,
+		"activity_category_rules":                               activityCategoryRules,
+		"external_activity_rules":                               externalActivityRules,
 	}
 	return []interface{}{block}
 }
