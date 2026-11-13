@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -15,7 +16,6 @@ import (
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/constants"
-	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
 )
 
 /*
@@ -38,18 +38,12 @@ func getAllServiceGoalTemplates(ctx context.Context, clientConfig *platformclien
 	}
 
 	for _, businessUnit := range *businessUnits {
-		if businessUnit.Id == nil {
-			continue
-		}
 		templates, resp, err := proxy.getAllServiceGoalTemplates(ctx, *businessUnit.Id)
 		if err != nil {
 			return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get service goal templates of business unit %s: %v", *businessUnit.Id, err), resp)
 		}
 
 		for _, template := range *templates {
-			if template.Id == nil || template.Name == nil {
-				continue
-			}
 			resources[*businessUnit.Id+"/"+*template.Id] = &resourceExporter.ResourceMeta{BlockLabel: *businessUnit.Name + "_" + *template.Name}
 		}
 	}
@@ -87,14 +81,12 @@ func readServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta i
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		template, resp, getErr := proxy.getServiceGoalTemplateById(ctx, businessUnitId, templateId)
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s: %s", businessUnitId, templateId, getErr), resp))
-			}
+			// A 404 is not retried: the service goal template is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s: %s", businessUnitId, templateId, getErr), resp))
 		}
 
 		_ = d.Set("business_unit_id", businessUnitId)
-		resourcedata.SetNillableValue(d, "name", template.Name)
+		_ = d.Set("name", *template.Name)
 		_ = d.Set("service_level", flattenServiceLevel(template.ServiceLevel))
 		_ = d.Set("average_speed_of_answer", flattenAverageSpeedOfAnswer(template.AverageSpeedOfAnswer))
 		_ = d.Set("abandon_rate", flattenAbandonRate(template.AbandonRate))
@@ -113,11 +105,16 @@ func updateServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 
 	log.Printf("Updating business unit %s service goal template %s", businessUnitId, templateId)
 
-	// The update request carries the current metadata version for optimistic locking, so a version conflict re-reads the service goal template and tries again
+	// The update request carries the current metadata version for optimistic locking, so a version conflict re-reads the service goal template and tries again.
+	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
 	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getServiceGoalTemplateById(ctx, businessUnitId, templateId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s before update: %s", businessUnitId, templateId, err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s before update: %s", businessUnitId, templateId, err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
 		_, resp, err = proxy.updateServiceGoalTemplate(ctx, businessUnitId, templateId, buildUpdateServiceGoalTemplateRequest(d, current.Metadata))
@@ -125,7 +122,7 @@ func updateServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update business unit %s service goal template %s: %s", businessUnitId, templateId, err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -136,6 +133,10 @@ func updateServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 
 	log.Printf("Updated business unit %s service goal template %s", businessUnitId, templateId)
 	return readServiceGoalTemplate(ctx, d, meta)
+}
+
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteServiceGoalTemplate is used by the workforcemanagement_businessunits_servicegoaltemplate resource to delete a business unit service goal template from Genesys Cloud
@@ -154,16 +155,6 @@ func deleteServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to delete business unit %s service goal template %s: %s", businessUnitId, templateId, err), resp)
 	}
 
-	return util.WithRetries(ctx, 180*time.Second, func() *retry.RetryError {
-		_, resp, err := proxy.getServiceGoalTemplateById(ctx, businessUnitId, templateId)
-		if err != nil {
-			if util.IsStatus404(resp) {
-				log.Printf("Deleted business unit %s service goal template %s", businessUnitId, templateId)
-				return nil
-			}
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Error deleting business unit %s service goal template %s: %s", businessUnitId, templateId, err), resp))
-		}
-
-		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("business unit %s service goal template %s still exists", businessUnitId, templateId), resp))
-	})
+	log.Printf("Deleted business unit %s service goal template %s", businessUnitId, templateId)
+	return nil
 }

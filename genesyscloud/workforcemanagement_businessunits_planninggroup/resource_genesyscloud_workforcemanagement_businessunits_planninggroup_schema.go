@@ -36,10 +36,9 @@ var routePathResource = &schema.Resource{
 			Required:    true,
 		},
 		"media_type": {
-			Description:  `The media type of the queue to associate with the route path. Valid values: Voice, Chat, Email, Callback, Message, Workitem.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringInSlice([]string{"Voice", "Chat", "Email", "Callback", "Message", "Workitem"}, false),
+			Description: `The media type of the queue to associate with the route path. Valid values: Voice, Chat, Email, Callback, Message, Workitem.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"language_id": {
 			Description: `The id of the language to associate with the route path.`,
