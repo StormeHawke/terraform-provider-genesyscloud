@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -15,7 +16,6 @@ import (
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/constants"
-	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
 )
 
 /*
@@ -38,18 +38,12 @@ func getAllPlanningGroups(ctx context.Context, clientConfig *platformclientv2.Co
 	}
 
 	for _, businessUnit := range *businessUnits {
-		if businessUnit.Id == nil {
-			continue
-		}
 		planningGroups, resp, err := proxy.getAllPlanningGroups(ctx, *businessUnit.Id)
 		if err != nil {
 			return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get planning groups of business unit %s: %v", *businessUnit.Id, err), resp)
 		}
 
 		for _, planningGroup := range *planningGroups {
-			if planningGroup.Id == nil || planningGroup.Name == nil {
-				continue
-			}
 			resources[*businessUnit.Id+"/"+*planningGroup.Id] = &resourceExporter.ResourceMeta{BlockLabel: *businessUnit.Name + "_" + *planningGroup.Name}
 		}
 	}
@@ -87,14 +81,12 @@ func readPlanningGroup(ctx context.Context, d *schema.ResourceData, meta interfa
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		planningGroup, resp, getErr := proxy.getPlanningGroupById(ctx, businessUnitId, planningGroupId)
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s planning group %s: %s", businessUnitId, planningGroupId, getErr), resp))
-			}
+			// A 404 is not retried: the planning group is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s planning group %s: %s", businessUnitId, planningGroupId, getErr), resp))
 		}
 
 		_ = d.Set("business_unit_id", businessUnitId)
-		resourcedata.SetNillableValue(d, "name", planningGroup.Name)
+		_ = d.Set("name", *planningGroup.Name)
 		_ = d.Set("service_goal_template_id", flattenServiceGoalTemplateId(planningGroup.ServiceGoalTemplate))
 		_ = d.Set("route_paths", flattenRoutePaths(planningGroup.RoutePaths))
 
@@ -111,11 +103,16 @@ func updatePlanningGroup(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("Updating business unit %s planning group %s", businessUnitId, planningGroupId)
 
-	// The update request carries the current metadata version for optimistic locking, so a version conflict re-reads the planning group and tries again
+	// The update request carries the current metadata version for optimistic locking, so a version conflict re-reads the planning group and tries again.
+	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
 	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getPlanningGroupById(ctx, businessUnitId, planningGroupId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s planning group %s before update: %s", businessUnitId, planningGroupId, err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s planning group %s before update: %s", businessUnitId, planningGroupId, err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
 		_, resp, err = proxy.updatePlanningGroup(ctx, businessUnitId, planningGroupId, buildUpdatePlanningGroupRequest(d, current.Metadata))
@@ -123,7 +120,7 @@ func updatePlanningGroup(ctx context.Context, d *schema.ResourceData, meta inter
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update business unit %s planning group %s: %s", businessUnitId, planningGroupId, err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -134,6 +131,10 @@ func updatePlanningGroup(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("Updated business unit %s planning group %s", businessUnitId, planningGroupId)
 	return readPlanningGroup(ctx, d, meta)
+}
+
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deletePlanningGroup is used by the workforcemanagement_businessunits_planninggroup resource to delete a business unit planning group from Genesys Cloud
@@ -152,16 +153,6 @@ func deletePlanningGroup(ctx context.Context, d *schema.ResourceData, meta inter
 		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to delete business unit %s planning group %s: %s", businessUnitId, planningGroupId, err), resp)
 	}
 
-	return util.WithRetries(ctx, 180*time.Second, func() *retry.RetryError {
-		_, resp, err := proxy.getPlanningGroupById(ctx, businessUnitId, planningGroupId)
-		if err != nil {
-			if util.IsStatus404(resp) {
-				log.Printf("Deleted business unit %s planning group %s", businessUnitId, planningGroupId)
-				return nil
-			}
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Error deleting business unit %s planning group %s: %s", businessUnitId, planningGroupId, err), resp))
-		}
-
-		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("business unit %s planning group %s still exists", businessUnitId, planningGroupId), resp))
-	})
+	log.Printf("Deleted business unit %s planning group %s", businessUnitId, planningGroupId)
+	return nil
 }

@@ -110,44 +110,33 @@ func buildUpdatePlanningGroupRequest(d *schema.ResourceData, metadata *platformc
 		RoutePaths:            &platformclientv2.Setwrapperroutepathrequest{Values: buildRoutePaths(d)},
 		ServiceGoalTemplateId: buildServiceGoalTemplateId(d),
 	}
-	if metadata != nil && metadata.Version != nil {
+	if metadata.Version != nil {
 		request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: metadata.Version}
 	}
 	return request
 }
 
 func flattenServiceGoalTemplateId(templateRef *platformclientv2.Servicegoaltemplatereference) string {
-	if templateRef == nil || templateRef.Id == nil {
-		return ""
-	}
 	return *templateRef.Id
 }
 
 func flattenRoutePaths(routePaths *[]platformclientv2.Routepathresponse) *schema.Set {
 	flattened := make([]interface{}, 0)
-	if routePaths != nil {
-		for _, routePath := range *routePaths {
-			routePathMap := make(map[string]interface{})
-			if routePath.Queue != nil && routePath.Queue.Id != nil {
-				routePathMap["queue_id"] = *routePath.Queue.Id
-			}
-			if routePath.MediaType != nil {
-				routePathMap["media_type"] = *routePath.MediaType
-			}
-			if routePath.Language != nil && routePath.Language.Id != nil {
-				routePathMap["language_id"] = *routePath.Language.Id
-			}
-			skillIds := make([]interface{}, 0)
-			if routePath.Skills != nil {
-				for _, skill := range *routePath.Skills {
-					if skill.Id != nil {
-						skillIds = append(skillIds, *skill.Id)
-					}
-				}
-			}
-			routePathMap["skill_ids"] = schema.NewSet(schema.HashString, skillIds)
-			flattened = append(flattened, routePathMap)
+	for _, routePath := range *routePaths {
+		routePathMap := map[string]interface{}{
+			"queue_id":   *routePath.Queue.Id,
+			"media_type": *routePath.MediaType,
 		}
+		// The language is the only nullable part of a route path
+		if routePath.Language != nil {
+			routePathMap["language_id"] = *routePath.Language.Id
+		}
+		skillIds := make([]interface{}, 0)
+		for _, skill := range *routePath.Skills {
+			skillIds = append(skillIds, *skill.Id)
+		}
+		routePathMap["skill_ids"] = schema.NewSet(schema.HashString, skillIds)
+		flattened = append(flattened, routePathMap)
 	}
 	return schema.NewSet(schema.HashResource(routePathResource), flattened)
 }
