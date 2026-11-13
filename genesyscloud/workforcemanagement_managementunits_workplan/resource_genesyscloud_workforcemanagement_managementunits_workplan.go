@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -37,9 +38,6 @@ func getAllWorkPlans(ctx context.Context, clientConfig *platformclientv2.Configu
 	}
 
 	for _, managementUnit := range *managementUnits {
-		if managementUnit.Id == nil || managementUnit.Name == nil {
-			continue
-		}
 		workPlans, resp, err := proxy.getAllWorkPlans(ctx, *managementUnit.Id)
 		if err != nil {
 			return nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to get work plans of management unit %s: %v", *managementUnit.Id, err), resp)
@@ -90,9 +88,7 @@ func readWorkPlan(ctx context.Context, d *schema.ResourceData, meta interface{})
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		workPlan, resp, getErr := proxy.getWorkPlanById(ctx, managementUnitId, workPlanId)
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan %s: %s", managementUnitId, workPlanId, getErr), resp))
-			}
+			// A 404 is not retried: the work plan is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan %s: %s", managementUnitId, workPlanId, getErr), resp))
 		}
 
@@ -109,7 +105,7 @@ func readWorkPlan(ctx context.Context, d *schema.ResourceData, meta interface{})
 		if workPlan.Valid != nil {
 			_ = d.Set("valid", *workPlan.Valid)
 		}
-		if workPlan.OptionalDays != nil && workPlan.OptionalDays.Values != nil {
+		if workPlan.OptionalDays != nil {
 			_ = d.Set("optional_days", stringSet(*workPlan.OptionalDays.Values))
 		}
 		_ = d.Set("shift_start_variances", flattenShiftStartVariances(workPlan.ShiftStartVariances))
@@ -132,10 +128,15 @@ func updateWorkPlan(ctx context.Context, d *schema.ResourceData, meta interface{
 
 	// The patch is built against the current shifts and agents of the work plan, and carries its version for optimistic
 	// locking, so a version conflict reads the work plan again and rebuilds the patch.
+	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the patch from the freshly read work plan.
 	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanById(ctx, managementUnitId, workPlanId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan %s before update: %s", managementUnitId, workPlanId, err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan %s before update: %s", managementUnitId, workPlanId, err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
 		request, err := buildUpdateWorkPlanRequest(d.GetRawConfig(), current)
@@ -147,7 +148,7 @@ func updateWorkPlan(ctx context.Context, d *schema.ResourceData, meta interface{
 		if err == nil {
 			return nil
 		}
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update management unit %s work plan %s: %s", managementUnitId, workPlanId, err), resp))
 		}
 		details := validationDetails(ctx, proxy, managementUnitId, workPlanId, resp, func() *platformclientv2.Workplan { return request })
@@ -169,6 +170,10 @@ func deleteWorkPlan(ctx context.Context, d *schema.ResourceData, meta interface{
 
 	log.Printf("Deleting management unit %s work plan %s", managementUnitId, workPlanId)
 	return deleteWorkPlanAndUnassignAgents(ctx, proxy, managementUnitId, workPlanId)
+}
+
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteWorkPlanAndUnassignAgents deletes the work plan after unassigning its agents, because Genesys Cloud refuses to delete a work plan
@@ -227,7 +232,7 @@ func unassignAgents(ctx context.Context, proxy *workPlanProxy, managementUnitId 
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to unassign the %d agent(s) of management unit %s work plan %s before deleting it: %s", len(agentIds), managementUnitId, workPlanId, err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)

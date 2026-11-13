@@ -322,10 +322,7 @@ func buildShiftUpdates(existing []platformclientv2.Workplanshift, configured []p
 			current := candidates[0]
 			shift.Id = current.Id
 			if shift.Activities != nil {
-				currentActivities := []platformclientv2.Workplanactivity{}
-				if current.Activities != nil {
-					currentActivities = *current.Activities
-				}
+				currentActivities := *current.Activities
 				if activitiesMatch(currentActivities, *shift.Activities) {
 					shift.Activities = nil
 				} else {
@@ -389,12 +386,8 @@ func sortedKeys(set map[string]bool) []string {
 
 func existingAgentIds(workPlan *platformclientv2.Workplan) []string {
 	ids := []string{}
-	if workPlan.Agents != nil {
-		for _, agent := range *workPlan.Agents {
-			if agent.Id != nil {
-				ids = append(ids, *agent.Id)
-			}
-		}
+	for _, agent := range *workPlan.Agents {
+		ids = append(ids, *agent.Id)
 	}
 	return ids
 }
@@ -446,11 +439,7 @@ func buildUpdateWorkPlanRequest(config cty.Value, current *platformclientv2.Work
 	request.ShiftStartVariances = readShiftStartVariances(config)
 
 	if configuredShifts := readShifts(config); configuredShifts != nil {
-		currentShifts := []platformclientv2.Workplanshift{}
-		if current.Shifts != nil {
-			currentShifts = *current.Shifts
-		}
-		updates, err := buildShiftUpdates(currentShifts, *configuredShifts)
+		updates, err := buildShiftUpdates(*current.Shifts, *configuredShifts)
 		if err != nil {
 			return nil, err
 		}
@@ -471,10 +460,6 @@ func buildUpdateWorkPlanRequest(config cty.Value, current *platformclientv2.Work
 }
 
 func flattenActivities(activities *[]platformclientv2.Workplanactivity, priorOrder []map[string]interface{}) []interface{} {
-	if activities == nil {
-		return []interface{}{}
-	}
-
 	remaining := append([]platformclientv2.Workplanactivity(nil), *activities...)
 	sort.SliceStable(remaining, func(i, j int) bool { return activitySortKey(remaining[i]) < activitySortKey(remaining[j]) })
 
@@ -509,10 +494,6 @@ func activityMatchesPrior(activity platformclientv2.Workplanactivity, prior map[
 }
 
 func flattenShifts(shifts *[]platformclientv2.Workplanshift, priorShifts []interface{}) []interface{} {
-	if shifts == nil {
-		return []interface{}{}
-	}
-
 	remaining := append([]platformclientv2.Workplanshift(nil), *shifts...)
 	sort.SliceStable(remaining, func(i, j int) bool { return stringValue(remaining[i].Name) < stringValue(remaining[j].Name) })
 
@@ -565,16 +546,12 @@ func flattenShifts(shifts *[]platformclientv2.Workplanshift, priorShifts []inter
 
 func flattenShiftStartVariances(variances *platformclientv2.Listwrappershiftstartvariance) *schema.Set {
 	flattened := make([]interface{}, 0)
-	if variances != nil && variances.Values != nil {
+	if variances != nil {
 		for _, variance := range *variances.Values {
-			entry := map[string]interface{}{}
-			if variance.ApplicableDays != nil {
-				entry["applicable_days"] = stringSet(*variance.ApplicableDays)
-			}
-			if variance.MaxShiftStartVarianceMinutes != nil {
-				entry["max_shift_start_variance_minutes"] = *variance.MaxShiftStartVarianceMinutes
-			}
-			flattened = append(flattened, entry)
+			flattened = append(flattened, map[string]interface{}{
+				"applicable_days":                  stringSet(*variance.ApplicableDays),
+				"max_shift_start_variance_minutes": *variance.MaxShiftStartVarianceMinutes,
+			})
 		}
 	}
 	return schema.NewSet(schema.HashResource(shiftStartVarianceResource), flattened)
@@ -644,15 +621,13 @@ func toValidationRequest(workPlan *platformclientv2.Workplan) *platformclientv2.
 
 // formatValidationMessages describes why a work plan is invalid, in a form that can be added to an error
 func formatValidationMessages(response *platformclientv2.Validateworkplanresponse) string {
-	if response == nil || response.Messages == nil {
+	if response.Messages == nil {
 		return ""
 	}
 
 	var lines []string
-	if response.Messages.ViolationMessages != nil {
-		for _, message := range *response.Messages.ViolationMessages {
-			lines = append(lines, fmt.Sprintf("- %s: %s%s", stringValue(message.Severity), stringValue(message.VarType), formatArguments(message.Arguments)))
-		}
+	for _, message := range *response.Messages.ViolationMessages {
+		lines = append(lines, fmt.Sprintf("- %s: %s%s", stringValue(message.Severity), stringValue(message.VarType), formatArguments(message.Arguments)))
 	}
 	if conflict := response.Messages.ConstraintConflictMessage; conflict != nil {
 		if conflict.Message != nil {
@@ -722,7 +697,7 @@ func validateConfiguredWorkPlan(ctx context.Context, proxy *workPlanProxy, manag
 	}
 
 	validation, _, err := proxy.validateWorkPlan(ctx, managementUnitId, workPlanId, toValidationRequest(request))
-	if err != nil || validation == nil || validation.Valid == nil || *validation.Valid {
+	if err != nil || *validation.Valid {
 		return nil
 	}
 

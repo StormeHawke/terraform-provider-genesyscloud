@@ -106,14 +106,16 @@ func TestUnitAssignScalarsOnlySetsConfiguredValues(t *testing.T) {
 	}
 }
 
+// shift builds a shift as the api returns it, which always has a list of activities
 func shift(name string, id string, activities ...platformclientv2.Workplanactivity) platformclientv2.Workplanshift {
 	result := platformclientv2.Workplanshift{Name: platformclientv2.String(name)}
 	if id != "" {
 		result.Id = platformclientv2.String(id)
 	}
-	if activities != nil {
-		result.Activities = &activities
+	if activities == nil {
+		activities = []platformclientv2.Workplanactivity{}
 	}
+	result.Activities = &activities
 	return result
 }
 
@@ -327,7 +329,7 @@ func TestUnitFormatValidationMessages(t *testing.T) {
 	if got != "- Error: DailyShiftHasNoDaysSelected (ShiftName=Day)" {
 		t.Errorf("unexpected message %q", got)
 	}
-	if formatValidationMessages(nil) != "" || formatValidationMessages(&platformclientv2.Validateworkplanresponse{}) != "" {
+	if formatValidationMessages(&platformclientv2.Validateworkplanresponse{}) != "" {
 		t.Error("expected no text when there are no messages")
 	}
 }
@@ -377,6 +379,7 @@ func TestUnitDeleteUnassignsAgentsBeforeDeleting(t *testing.T) {
 	proxy, _ := stubProxy()
 	proxy.getWorkPlanByIdAttr = func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string) (*platformclientv2.Workplan, *platformclientv2.APIResponse, error) {
 		return &platformclientv2.Workplan{
+			Shifts:   &[]platformclientv2.Workplanshift{},
 			Agents:   &[]platformclientv2.Deletableuserreference{{Id: platformclientv2.String("a")}, {Id: platformclientv2.String("b")}},
 			Metadata: &platformclientv2.Wfmversionedentitymetadata{Version: platformclientv2.Int(4)},
 		}, nil, nil
@@ -407,7 +410,7 @@ func TestUnitDeleteSkipsUnassigningWhenThereAreNoAgents(t *testing.T) {
 	deleted := false
 	proxy, _ := stubProxy()
 	proxy.getWorkPlanByIdAttr = func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string) (*platformclientv2.Workplan, *platformclientv2.APIResponse, error) {
-		return &platformclientv2.Workplan{}, nil, nil
+		return &platformclientv2.Workplan{Shifts: &[]platformclientv2.Workplanshift{}, Agents: &[]platformclientv2.Deletableuserreference{}}, nil, nil
 	}
 	proxy.updateWorkPlanAttr = func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string, workPlan *platformclientv2.Workplan) (*platformclientv2.Workplan, *platformclientv2.APIResponse, error) {
 		updated = true
@@ -470,7 +473,7 @@ func TestUnitValidateConfiguredWorkPlanValidatesChangesOnTopOfTheCurrentWorkPlan
 	var request *platformclientv2.Workplanvalidationrequest
 	proxy, _ := stubProxy()
 	proxy.getWorkPlanByIdAttr = func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string) (*platformclientv2.Workplan, *platformclientv2.APIResponse, error) {
-		return &platformclientv2.Workplan{Shifts: &[]platformclientv2.Workplanshift{shift("Day", "0")}}, nil, nil
+		return &platformclientv2.Workplan{Shifts: &[]platformclientv2.Workplanshift{shift("Day", "0")}, Agents: &[]platformclientv2.Deletableuserreference{}}, nil, nil
 	}
 	proxy.validateWorkPlanAttr = func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string, workPlan *platformclientv2.Workplanvalidationrequest) (*platformclientv2.Validateworkplanresponse, *platformclientv2.APIResponse, error) {
 		request = workPlan

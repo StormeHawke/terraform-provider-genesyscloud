@@ -19,13 +19,6 @@ resource_genesyscloud_workforcemanagement_managementunits_workplan_schema.go hol
 */
 const ResourceType = "genesyscloud_workforcemanagement_managementunits_workplan"
 
-var (
-	daysOfWeek     = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
-	varianceTypes  = []string{"ShiftStart", "ShiftStartAndPaidDuration"}
-	variancePeriod = []string{"Weekly", "PlanningPeriod"}
-	dayOffRules    = []string{"NextDayOff", "PreviousDayOff"}
-)
-
 // SetRegistrar registers all of the resources, datasources and exporters in the package
 func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterResource(ResourceType, ResourceWorkPlan())
@@ -34,19 +27,15 @@ func SetRegistrar(regInstance registrar.Registrar) {
 }
 
 func optionalInt(description string) *schema.Schema {
-	return &schema.Schema{Description: description, Type: schema.TypeInt, Optional: true, Computed: true, ValidateFunc: validation.IntAtLeast(0)}
+	return &schema.Schema{Description: description, Type: schema.TypeInt, Optional: true, Computed: true}
 }
 
 func optionalBool(description string) *schema.Schema {
 	return &schema.Schema{Description: description, Type: schema.TypeBool, Optional: true, Computed: true}
 }
 
-func optionalString(description string, allowed ...string) *schema.Schema {
-	s := &schema.Schema{Description: description, Type: schema.TypeString, Optional: true, Computed: true}
-	if len(allowed) > 0 {
-		s.ValidateFunc = validation.StringInSlice(allowed, false)
-	}
-	return s
+func optionalString(description string) *schema.Schema {
+	return &schema.Schema{Description: description, Type: schema.TypeString, Optional: true, Computed: true}
 }
 
 func daySet(description string) *schema.Schema {
@@ -55,7 +44,7 @@ func daySet(description string) *schema.Schema {
 		Type:        schema.TypeSet,
 		Optional:    true,
 		Computed:    true,
-		Elem:        &schema.Schema{Type: schema.TypeString, ValidateFunc: validation.StringInSlice(daysOfWeek, false)},
+		Elem:        &schema.Schema{Type: schema.TypeString},
 	}
 }
 
@@ -65,13 +54,12 @@ var shiftStartVarianceResource = &schema.Resource{
 			Description: `The days for which the shift start variance is configured. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.`,
 			Type:        schema.TypeSet,
 			Required:    true,
-			Elem:        &schema.Schema{Type: schema.TypeString, ValidateFunc: validation.StringInSlice(daysOfWeek, false)},
+			Elem:        &schema.Schema{Type: schema.TypeString},
 		},
 		"max_shift_start_variance_minutes": {
-			Description:  `The maximum variance in minutes across shift starts.`,
-			Type:         schema.TypeInt,
-			Required:     true,
-			ValidateFunc: validation.IntAtLeast(0),
+			Description: `The maximum variance in minutes across shift starts.`,
+			Type:        schema.TypeInt,
+			Required:    true,
 		},
 	},
 }
@@ -134,7 +122,7 @@ var shiftResource = &schema.Resource{
 		"minimum_contiguous_work_time_minutes":      optionalInt(`The minimum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.`),
 		"maximum_contiguous_work_time_minutes":      optionalInt(`The maximum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.`),
 		"constrain_day_off":                         optionalBool(`Whether the day off rule is enabled.`),
-		"day_off_rule":                              optionalString(`The day off rule for agents to have the next or previous day off. Used if constrain_day_off is true. Valid values: NextDayOff, PreviousDayOff.`, dayOffRules...),
+		"day_off_rule":                              optionalString(`The day off rule for agents to have the next or previous day off. Used if constrain_day_off is true. Valid values: NextDayOff, PreviousDayOff.`),
 		"planning_period_constraints": {
 			Description: `Constraints on the number of times this shift is worked per planning period.`,
 			Type:        schema.TypeList,
@@ -210,8 +198,8 @@ func ResourceWorkPlan() *schema.Resource {
 			"constrain_maximum_working_weekends_per_planning_period": optionalBool(`Whether to constrain the maximum working weekends in the planning period.`),
 			"maximum_working_weekends_per_planning_period":           optionalInt(`The maximum working weekends in the planning period.`),
 			"optional_days":                                          daySet(`The optional days to schedule for this work plan. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.`),
-			"shift_start_variance_type":                              optionalString(`Ensures an agent starts each workday within a threshold. Valid values: ShiftStart, ShiftStartAndPaidDuration.`, varianceTypes...),
-			"shift_start_variance_period":                            optionalString(`The period over which the maximum shift start variance is applied. Valid values: Weekly, PlanningPeriod.`, variancePeriod...),
+			"shift_start_variance_type":                              optionalString(`Ensures an agent starts each workday within a threshold. Valid values: ShiftStart, ShiftStartAndPaidDuration.`),
+			"shift_start_variance_period":                            optionalString(`The period over which the maximum shift start variance is applied. Valid values: Weekly, PlanningPeriod.`),
 			"shift_start_variances": {
 				Description: `The variance in minutes among the start times of shifts, per set of days.`,
 				Type:        schema.TypeSet,
