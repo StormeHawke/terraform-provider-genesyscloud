@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -15,7 +16,6 @@ import (
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/constants"
-	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/resourcedata"
 )
 
 /*
@@ -33,9 +33,6 @@ func getAllManagementUnits(ctx context.Context, clientConfig *platformclientv2.C
 	}
 
 	for _, managementUnit := range *managementUnits {
-		if managementUnit.Id == nil || managementUnit.Name == nil {
-			continue
-		}
 		resources[*managementUnit.Id] = &resourceExporter.ResourceMeta{BlockLabel: *managementUnit.Name}
 	}
 
@@ -70,19 +67,13 @@ func readManagementUnit(ctx context.Context, d *schema.ResourceData, meta interf
 	return util.WithRetriesForRead(ctx, d, func() *retry.RetryError {
 		managementUnit, resp, getErr := proxy.getManagementUnitById(ctx, d.Id())
 		if getErr != nil {
-			if util.IsStatus404(resp) {
-				return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s: %s", d.Id(), getErr), resp))
-			}
+			// A 404 is not retried: the management unit is readable as soon as it is created, so a 404 means it is gone and WithRetriesForRead removes it from state
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s: %s", d.Id(), getErr), resp))
 		}
 
-		resourcedata.SetNillableValue(d, "name", managementUnit.Name)
-		if managementUnit.BusinessUnit != nil {
-			resourcedata.SetNillableValue(d, "business_unit_id", managementUnit.BusinessUnit.Id)
-		}
-		if managementUnit.Division != nil {
-			resourcedata.SetNillableValue(d, "division_id", managementUnit.Division.Id)
-		}
+		_ = d.Set("name", *managementUnit.Name)
+		_ = d.Set("business_unit_id", *managementUnit.BusinessUnit.Id)
+		_ = d.Set("division_id", *managementUnit.Division.Id)
 		_ = d.Set("settings", flattenSettings(managementUnit.Settings))
 
 		log.Printf("Read management unit %s", d.Id())
@@ -106,15 +97,20 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 		}
 	}
 
-	// The update request carries the current settings metadata version for optimistic locking, so a version conflict re-reads the management unit and tries again
+	// The update request carries the current settings metadata version for optimistic locking, so a version conflict re-reads the management unit and tries again.
+	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
 	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
 		current, resp, err := proxy.getManagementUnitById(ctx, d.Id())
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s before update: %s", d.Id(), err), resp))
+			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s before update: %s", d.Id(), err), resp)
+			if isTransientStatus(resp) {
+				return retry.RetryableError(readDiagErr)
+			}
+			return retry.NonRetryableError(readDiagErr)
 		}
 
 		var metadata *platformclientv2.Wfmversionedentitymetadata
-		if current.Settings != nil && current.Settings.Metadata != nil {
+		if current.Settings != nil {
 			metadata = current.Settings.Metadata
 		} else {
 			metadata = current.Metadata
@@ -125,7 +121,7 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update management unit %s: %s", d.Id(), err), resp)
-		if util.IsStatus409(resp) {
+		if util.IsStatus409(resp) || isTransientStatus(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -152,12 +148,16 @@ func moveManagementUnitToBusinessUnit(ctx context.Context, proxy *managementUnit
 		if err != nil {
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s while waiting for the move: %s", managementUnitId, err), resp))
 		}
-		if managementUnit.BusinessUnit != nil && managementUnit.BusinessUnit.Id != nil && *managementUnit.BusinessUnit.Id == businessUnitId {
+		if *managementUnit.BusinessUnit.Id == businessUnitId {
 			log.Printf("Moved management unit %s to business unit %s", managementUnitId, businessUnitId)
 			return nil
 		}
 		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("management unit %s has not moved to business unit %s yet", managementUnitId, businessUnitId), resp))
 	})
+}
+
+func isTransientStatus(resp *platformclientv2.APIResponse) bool {
+	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteManagementUnit is used by the workforcemanagement_managementunits resource to delete a management unit from Genesys Cloud

@@ -111,10 +111,6 @@ func getAllPlanningGroupsFn(ctx context.Context, p *planningGroupProxy, business
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Planninggroup{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -126,7 +122,7 @@ func getPlanningGroupIdByNameFn(ctx context.Context, p *planningGroupProxy, busi
 	}
 
 	for _, planningGroup := range *planningGroups {
-		if planningGroup.Name != nil && *planningGroup.Name == name && planningGroup.Id != nil {
+		if *planningGroup.Name == name {
 			return *planningGroup.Id, resp, false, nil
 		}
 	}
@@ -154,10 +150,6 @@ func getAllBusinessUnitsFn(ctx context.Context, p *planningGroupProxy) (*[]platf
 	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementBusinessunits("", "")
 	if err != nil {
 		return nil, resp, err
-	}
-
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Businessunitlistitem{}, resp, nil
 	}
 
 	return listing.Entities, resp, nil

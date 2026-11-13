@@ -111,10 +111,6 @@ func getAllServiceGoalTemplatesFn(ctx context.Context, p *serviceGoalTemplatePro
 		return nil, resp, err
 	}
 
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Servicegoaltemplate{}, resp, nil
-	}
-
 	return listing.Entities, resp, nil
 }
 
@@ -126,7 +122,7 @@ func getServiceGoalTemplateIdByNameFn(ctx context.Context, p *serviceGoalTemplat
 	}
 
 	for _, template := range *templates {
-		if template.Name != nil && *template.Name == name && template.Id != nil {
+		if *template.Name == name {
 			return *template.Id, resp, false, nil
 		}
 	}
@@ -136,7 +132,8 @@ func getServiceGoalTemplateIdByNameFn(ctx context.Context, p *serviceGoalTemplat
 
 // getServiceGoalTemplateByIdFn is an implementation of the function to get a Genesys Cloud service goal template by id
 func getServiceGoalTemplateByIdFn(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, templateId string) (*platformclientv2.Servicegoaltemplate, *platformclientv2.APIResponse, error) {
-	return p.workforceManagementApi.GetWorkforcemanagementBusinessunitServicegoaltemplate(businessUnitId, templateId, nil)
+	// The service only returns the impact override when it is expanded
+	return p.workforceManagementApi.GetWorkforcemanagementBusinessunitServicegoaltemplate(businessUnitId, templateId, []string{"impactOverride"})
 }
 
 // updateServiceGoalTemplateFn is an implementation of the function to update a Genesys Cloud service goal template
@@ -154,10 +151,6 @@ func getAllBusinessUnitsFn(ctx context.Context, p *serviceGoalTemplateProxy) (*[
 	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementBusinessunits("", "")
 	if err != nil {
 		return nil, resp, err
-	}
-
-	if listing == nil || listing.Entities == nil {
-		return &[]platformclientv2.Businessunitlistitem{}, resp, nil
 	}
 
 	return listing.Entities, resp, nil
