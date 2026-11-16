@@ -87,7 +87,7 @@ func readPlanningGroup(ctx context.Context, d *schema.ResourceData, meta interfa
 
 		_ = d.Set("business_unit_id", businessUnitId)
 		_ = d.Set("name", *planningGroup.Name)
-		_ = d.Set("service_goal_template_id", flattenServiceGoalTemplateId(planningGroup.ServiceGoalTemplate))
+		_ = d.Set("service_goal_template_id", getServiceGoalTemplateId(planningGroup.ServiceGoalTemplate))
 		_ = d.Set("route_paths", flattenRoutePaths(planningGroup.RoutePaths))
 
 		log.Printf("Read business unit %s planning group %s", businessUnitId, planningGroupId)

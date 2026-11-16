@@ -116,7 +116,8 @@ func buildUpdatePlanningGroupRequest(d *schema.ResourceData, metadata *platformc
 	return request
 }
 
-func flattenServiceGoalTemplateId(templateRef *platformclientv2.Servicegoaltemplatereference) string {
+// getServiceGoalTemplateId returns the id of the service goal template a planning group refers to
+func getServiceGoalTemplateId(templateRef *platformclientv2.Servicegoaltemplatereference) string {
 	return *templateRef.Id
 }
 
