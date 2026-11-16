@@ -19,7 +19,7 @@ var internalProxy *workPlanRotationProxy
 // Type definitions for each func on our proxy so we can easily mock them out later
 type createWorkPlanRotationFunc func(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, rotation *platformclientv2.Addworkplanrotationrequest) (*platformclientv2.Workplanrotationresponse, *platformclientv2.APIResponse, error)
 type getAllWorkPlanRotationsFunc func(ctx context.Context, p *workPlanRotationProxy, managementUnitId string) (*[]platformclientv2.Workplanrotationresponse, *platformclientv2.APIResponse, error)
-type getWorkPlanRotationIdByNameFunc func(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error)
+type getWorkPlanRotationIdByNameFunc func(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, error)
 type getWorkPlanRotationByIdFunc func(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, rotationId string) (*platformclientv2.Workplanrotationresponse, *platformclientv2.APIResponse, error)
 type updateWorkPlanRotationFunc func(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, rotationId string, rotation *platformclientv2.Updateworkplanrotationrequest) (*platformclientv2.Workplanrotationresponse, *platformclientv2.APIResponse, error)
 type deleteWorkPlanRotationFunc func(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, rotationId string) (*platformclientv2.APIResponse, error)
@@ -75,7 +75,7 @@ func (p *workPlanRotationProxy) getAllWorkPlanRotations(ctx context.Context, man
 }
 
 // getWorkPlanRotationIdByName returns the id of a Genesys Cloud work plan rotation by name
-func (p *workPlanRotationProxy) getWorkPlanRotationIdByName(ctx context.Context, managementUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func (p *workPlanRotationProxy) getWorkPlanRotationIdByName(ctx context.Context, managementUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	return p.getWorkPlanRotationIdByNameAttr(ctx, p, managementUnitId, name)
 }
 
@@ -115,19 +115,19 @@ func getAllWorkPlanRotationsFn(ctx context.Context, p *workPlanRotationProxy, ma
 }
 
 // getWorkPlanRotationIdByNameFn is an implementation of the function to get the id of a work plan rotation by name
-func getWorkPlanRotationIdByNameFn(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func getWorkPlanRotationIdByNameFn(ctx context.Context, p *workPlanRotationProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	rotations, resp, err := getAllWorkPlanRotationsFn(ctx, p, managementUnitId)
 	if err != nil {
-		return "", resp, false, err
+		return "", resp, err
 	}
 
 	for _, rotation := range *rotations {
 		if *rotation.Name == name {
-			return *rotation.Id, resp, false, nil
+			return *rotation.Id, resp, nil
 		}
 	}
 
-	return "", resp, true, fmt.Errorf("unable to find management unit %s work plan rotation with name %s", managementUnitId, name)
+	return "", resp, fmt.Errorf("unable to find management unit %s work plan rotation with name %s", managementUnitId, name)
 }
 
 // getWorkPlanRotationByIdFn is an implementation of the function to get a Genesys Cloud work plan rotation by id
