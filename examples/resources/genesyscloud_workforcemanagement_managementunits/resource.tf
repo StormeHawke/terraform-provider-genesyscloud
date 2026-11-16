@@ -1,5 +1,5 @@
-resource "genesyscloud_workforcemanagement_managementunits" "contact_center" {
-  name             = "Contact Center MU"
+resource "genesyscloud_workforcemanagement_managementunits" "example_management_unit" {
+  name             = "Example Management Unit"
   business_unit_id = genesyscloud_workforcemanagement_businessunits.example_with_settings.id
 
   settings {
