@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
@@ -233,11 +232,7 @@ func setValues(ctx context.Context, proxy *timeOffLimitProxy, businessUnitId str
 		diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 			current, resp, err := proxy.getTimeOffLimitById(ctx, businessUnitId, limitId)
 			if err != nil {
-				readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off limit %s before setting its values: %s", businessUnitId, limitId, err), resp)
-				if isTransientStatus(resp) {
-					return retry.RetryableError(readDiagErr)
-				}
-				return retry.NonRetryableError(readDiagErr)
+				return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off limit %s before setting its values: %s", businessUnitId, limitId, err), resp))
 			}
 
 			_, resp, err = proxy.setLimitValues(ctx, businessUnitId, limitId, buildSetValuesRequest(chunk, current.Metadata))
@@ -245,7 +240,7 @@ func setValues(ctx context.Context, proxy *timeOffLimitProxy, businessUnitId str
 				return nil
 			}
 			builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to set the values of business unit %s time off limit %s: %s", businessUnitId, limitId, err), resp)
-			if util.IsStatus409(resp) || isTransientStatus(resp) {
+			if util.IsStatus409(resp) {
 				return retry.RetryableError(builtDiagErr)
 			}
 			return retry.NonRetryableError(builtDiagErr)
@@ -289,10 +284,6 @@ func verifyValuesSettled(ctx context.Context, proxy *timeOffLimitProxy, business
 		}
 	}
 	return nil
-}
-
-func isTransientStatus(resp *platformclientv2.APIResponse) bool {
-	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteTimeOffLimit is used by the workforcemanagement_businessunits_timeofflimit resource to delete a time off limit from Genesys Cloud

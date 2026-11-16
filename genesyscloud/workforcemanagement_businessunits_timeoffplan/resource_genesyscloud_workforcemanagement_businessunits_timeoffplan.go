@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -109,10 +108,6 @@ func readTimeOffPlan(ctx context.Context, d *schema.ResourceData, meta interface
 	})
 }
 
-func isTransientStatus(resp *platformclientv2.APIResponse) bool {
-	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
-}
-
 func setIfNotNil[T any](d *schema.ResourceData, key string, value *T) {
 	if value != nil {
 		_ = d.Set(key, *value)
@@ -129,15 +124,10 @@ func updateTimeOffPlan(ctx context.Context, d *schema.ResourceData, meta interfa
 
 	// The patch only contains what differs from the current time off plan and carries its version for optimistic locking,
 	// so a version conflict reads the time off plan again and rebuilds the patch.
-	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the patch from the freshly read time off plan.
 	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getTimeOffPlanById(ctx, businessUnitId, planId)
 		if err != nil {
-			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off plan %s before update: %s", businessUnitId, planId, err), resp)
-			if isTransientStatus(resp) {
-				return retry.RetryableError(readDiagErr)
-			}
-			return retry.NonRetryableError(readDiagErr)
+			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off plan %s before update: %s", businessUnitId, planId, err), resp))
 		}
 
 		_, resp, err = proxy.updateTimeOffPlan(ctx, businessUnitId, planId, buildUpdateRequest(d.GetRawConfig(), d.Get, current))
@@ -145,7 +135,7 @@ func updateTimeOffPlan(ctx context.Context, d *schema.ResourceData, meta interfa
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update business unit %s time off plan %s: %s", businessUnitId, planId, err), resp)
-		if util.IsStatus409(resp) || isTransientStatus(resp) {
+		if util.IsStatus409(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)

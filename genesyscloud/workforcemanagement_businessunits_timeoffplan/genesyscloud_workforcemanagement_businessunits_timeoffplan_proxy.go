@@ -19,7 +19,7 @@ var internalProxy *timeOffPlanProxy
 // Type definitions for each func on our proxy so we can easily mock them out later
 type createTimeOffPlanFunc func(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, plan *platformclientv2.Bucreatetimeoffplanrequest) (*platformclientv2.Butimeoffplanresponse, *platformclientv2.APIResponse, error)
 type getAllTimeOffPlansFunc func(ctx context.Context, p *timeOffPlanProxy, businessUnitId string) (*[]platformclientv2.Butimeoffplanresponse, *platformclientv2.APIResponse, error)
-type getTimeOffPlanIdByNameFunc func(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error)
+type getTimeOffPlanIdByNameFunc func(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error)
 type getTimeOffPlanByIdFunc func(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, planId string) (*platformclientv2.Butimeoffplanresponse, *platformclientv2.APIResponse, error)
 type updateTimeOffPlanFunc func(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, planId string, plan *platformclientv2.Buupdatetimeoffplanrequest) (*platformclientv2.Butimeoffplanresponse, *platformclientv2.APIResponse, error)
 type deleteTimeOffPlanFunc func(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, planId string) (*platformclientv2.APIResponse, error)
@@ -75,7 +75,7 @@ func (p *timeOffPlanProxy) getAllTimeOffPlans(ctx context.Context, businessUnitI
 }
 
 // getTimeOffPlanIdByName returns the id of a Genesys Cloud time off plan by name
-func (p *timeOffPlanProxy) getTimeOffPlanIdByName(ctx context.Context, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func (p *timeOffPlanProxy) getTimeOffPlanIdByName(ctx context.Context, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	return p.getTimeOffPlanIdByNameAttr(ctx, p, businessUnitId, name)
 }
 
@@ -115,19 +115,19 @@ func getAllTimeOffPlansFn(ctx context.Context, p *timeOffPlanProxy, businessUnit
 }
 
 // getTimeOffPlanIdByNameFn is an implementation of the function to get the id of a time off plan by name
-func getTimeOffPlanIdByNameFn(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func getTimeOffPlanIdByNameFn(ctx context.Context, p *timeOffPlanProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	plans, resp, err := getAllTimeOffPlansFn(ctx, p, businessUnitId)
 	if err != nil {
-		return "", resp, false, err
+		return "", resp, err
 	}
 
 	for _, plan := range *plans {
 		if *plan.Name == name {
-			return *plan.Id, resp, false, nil
+			return *plan.Id, resp, nil
 		}
 	}
 
-	return "", resp, true, fmt.Errorf("unable to find business unit %s time off plan with name %s", businessUnitId, name)
+	return "", resp, fmt.Errorf("unable to find business unit %s time off plan with name %s", businessUnitId, name)
 }
 
 // getTimeOffPlanByIdFn is an implementation of the function to get a Genesys Cloud time off plan by id
