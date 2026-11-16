@@ -19,7 +19,7 @@ var internalProxy *managementUnitProxy
 // Type definitions for each func on our proxy so we can easily mock them out later
 type createManagementUnitFunc func(ctx context.Context, p *managementUnitProxy, managementUnit *platformclientv2.Createmanagementunitapirequest) (*platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
 type getAllManagementUnitsFunc func(ctx context.Context, p *managementUnitProxy) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
-type getManagementUnitIdByNameFunc func(ctx context.Context, p *managementUnitProxy, name string) (string, *platformclientv2.APIResponse, bool, error)
+type getManagementUnitIdByNameFunc func(ctx context.Context, p *managementUnitProxy, name string) (string, *platformclientv2.APIResponse, error)
 type getManagementUnitByIdFunc func(ctx context.Context, p *managementUnitProxy, managementUnitId string) (*platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
 type updateManagementUnitFunc func(ctx context.Context, p *managementUnitProxy, managementUnitId string, managementUnit *platformclientv2.Updatemanagementunitrequest) (*platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
 type moveManagementUnitFunc func(ctx context.Context, p *managementUnitProxy, managementUnitId string, businessUnitId string) (*platformclientv2.Movemanagementunitresponse, *platformclientv2.APIResponse, error)
@@ -75,7 +75,7 @@ func (p *managementUnitProxy) getAllManagementUnits(ctx context.Context) (*[]pla
 }
 
 // getManagementUnitIdByName returns the id of a Genesys Cloud management unit by name
-func (p *managementUnitProxy) getManagementUnitIdByName(ctx context.Context, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func (p *managementUnitProxy) getManagementUnitIdByName(ctx context.Context, name string) (string, *platformclientv2.APIResponse, error) {
 	return p.getManagementUnitIdByNameAttr(ctx, p, name)
 }
 
@@ -116,19 +116,19 @@ func getAllManagementUnitsFn(ctx context.Context, p *managementUnitProxy) (*[]pl
 }
 
 // getManagementUnitIdByNameFn is an implementation of the function to get the id of a management unit by name
-func getManagementUnitIdByNameFn(ctx context.Context, p *managementUnitProxy, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func getManagementUnitIdByNameFn(ctx context.Context, p *managementUnitProxy, name string) (string, *platformclientv2.APIResponse, error) {
 	managementUnits, resp, err := getAllManagementUnitsFn(ctx, p)
 	if err != nil {
-		return "", resp, false, err
+		return "", resp, err
 	}
 
 	for _, managementUnit := range *managementUnits {
 		if *managementUnit.Name == name {
-			return *managementUnit.Id, resp, false, nil
+			return *managementUnit.Id, resp, nil
 		}
 	}
 
-	return "", resp, true, fmt.Errorf("unable to find management unit with name %s", name)
+	return "", resp, fmt.Errorf("unable to find management unit with name %s", name)
 }
 
 // settingsExpands requests every settings section, because settings are only returned when expanded and this resource manages all of them.
