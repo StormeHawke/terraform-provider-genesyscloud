@@ -19,7 +19,7 @@ var internalProxy *planningGroupProxy
 // Type definitions for each func on our proxy so we can easily mock them out later
 type createPlanningGroupFunc func(ctx context.Context, p *planningGroupProxy, businessUnitId string, planningGroup *platformclientv2.Createplanninggrouprequest) (*platformclientv2.Planninggroup, *platformclientv2.APIResponse, error)
 type getAllPlanningGroupsFunc func(ctx context.Context, p *planningGroupProxy, businessUnitId string) (*[]platformclientv2.Planninggroup, *platformclientv2.APIResponse, error)
-type getPlanningGroupIdByNameFunc func(ctx context.Context, p *planningGroupProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error)
+type getPlanningGroupIdByNameFunc func(ctx context.Context, p *planningGroupProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error)
 type getPlanningGroupByIdFunc func(ctx context.Context, p *planningGroupProxy, businessUnitId string, planningGroupId string) (*platformclientv2.Planninggroup, *platformclientv2.APIResponse, error)
 type updatePlanningGroupFunc func(ctx context.Context, p *planningGroupProxy, businessUnitId string, planningGroupId string, planningGroup *platformclientv2.Updateplanninggrouprequest) (*platformclientv2.Planninggroup, *platformclientv2.APIResponse, error)
 type deletePlanningGroupFunc func(ctx context.Context, p *planningGroupProxy, businessUnitId string, planningGroupId string) (*platformclientv2.APIResponse, error)
@@ -75,7 +75,7 @@ func (p *planningGroupProxy) getAllPlanningGroups(ctx context.Context, businessU
 }
 
 // getPlanningGroupIdByName returns the id of a Genesys Cloud planning group by name
-func (p *planningGroupProxy) getPlanningGroupIdByName(ctx context.Context, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func (p *planningGroupProxy) getPlanningGroupIdByName(ctx context.Context, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	return p.getPlanningGroupIdByNameAttr(ctx, p, businessUnitId, name)
 }
 
@@ -115,19 +115,19 @@ func getAllPlanningGroupsFn(ctx context.Context, p *planningGroupProxy, business
 }
 
 // getPlanningGroupIdByNameFn is an implementation of the function to get the id of a planning group by name
-func getPlanningGroupIdByNameFn(ctx context.Context, p *planningGroupProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func getPlanningGroupIdByNameFn(ctx context.Context, p *planningGroupProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	planningGroups, resp, err := getAllPlanningGroupsFn(ctx, p, businessUnitId)
 	if err != nil {
-		return "", resp, false, err
+		return "", resp, err
 	}
 
 	for _, planningGroup := range *planningGroups {
 		if *planningGroup.Name == name {
-			return *planningGroup.Id, resp, false, nil
+			return *planningGroup.Id, resp, nil
 		}
 	}
 
-	return "", resp, true, fmt.Errorf("unable to find business unit %s planning group with name %s", businessUnitId, name)
+	return "", resp, fmt.Errorf("unable to find business unit %s planning group with name %s", businessUnitId, name)
 }
 
 // getPlanningGroupByIdFn is an implementation of the function to get a Genesys Cloud planning group by id

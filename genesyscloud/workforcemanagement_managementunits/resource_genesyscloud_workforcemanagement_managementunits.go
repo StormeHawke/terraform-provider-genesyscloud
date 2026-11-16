@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -98,15 +97,10 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 
 	// The update request carries the current settings metadata version for optimistic locking, so a version conflict re-reads the management unit and tries again.
-	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
 	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getManagementUnitById(ctx, d.Id())
 		if err != nil {
-			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s before update: %s", d.Id(), err), resp)
-			if isTransientStatus(resp) {
-				return retry.RetryableError(readDiagErr)
-			}
-			return retry.NonRetryableError(readDiagErr)
+			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s before update: %s", d.Id(), err), resp))
 		}
 
 		var metadata *platformclientv2.Wfmversionedentitymetadata
@@ -121,7 +115,7 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update management unit %s: %s", d.Id(), err), resp)
-		if util.IsStatus409(resp) || isTransientStatus(resp) {
+		if util.IsStatus409(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -157,10 +151,6 @@ func moveManagementUnitToBusinessUnit(ctx context.Context, proxy *managementUnit
 		}
 		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("management unit %s has not moved to business unit %s yet", managementUnitId, businessUnitId), resp))
 	})
-}
-
-func isTransientStatus(resp *platformclientv2.APIResponse) bool {
-	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteManagementUnit is used by the workforcemanagement_managementunits resource to delete a management unit from Genesys Cloud

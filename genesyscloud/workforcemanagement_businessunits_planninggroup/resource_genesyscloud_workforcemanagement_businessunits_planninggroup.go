@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -103,15 +102,10 @@ func updatePlanningGroup(ctx context.Context, d *schema.ResourceData, meta inter
 	log.Printf("Updating business unit %s planning group %s", businessUnitId, planningGroupId)
 
 	// The update request carries the current metadata version for optimistic locking, so a version conflict re-reads the planning group and tries again.
-	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
 	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getPlanningGroupById(ctx, businessUnitId, planningGroupId)
 		if err != nil {
-			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s planning group %s before update: %s", businessUnitId, planningGroupId, err), resp)
-			if isTransientStatus(resp) {
-				return retry.RetryableError(readDiagErr)
-			}
-			return retry.NonRetryableError(readDiagErr)
+			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s planning group %s before update: %s", businessUnitId, planningGroupId, err), resp))
 		}
 
 		_, resp, err = proxy.updatePlanningGroup(ctx, businessUnitId, planningGroupId, buildUpdatePlanningGroupRequest(d, current.Metadata))
@@ -119,7 +113,7 @@ func updatePlanningGroup(ctx context.Context, d *schema.ResourceData, meta inter
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update business unit %s planning group %s: %s", businessUnitId, planningGroupId, err), resp)
-		if util.IsStatus409(resp) || isTransientStatus(resp) {
+		if util.IsStatus409(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -130,10 +124,6 @@ func updatePlanningGroup(ctx context.Context, d *schema.ResourceData, meta inter
 
 	log.Printf("Updated business unit %s planning group %s", businessUnitId, planningGroupId)
 	return readPlanningGroup(ctx, d, meta)
-}
-
-func isTransientStatus(resp *platformclientv2.APIResponse) bool {
-	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deletePlanningGroup is used by the workforcemanagement_businessunits_planninggroup resource to delete a business unit planning group from Genesys Cloud
