@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -107,7 +106,7 @@ func updateServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 
 	// The update request carries the current metadata version for optimistic locking, so a version conflict re-reads the service goal template and tries again.
 	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
-	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getServiceGoalTemplateById(ctx, businessUnitId, templateId)
 		if err != nil {
 			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s before update: %s", businessUnitId, templateId, err), resp)
