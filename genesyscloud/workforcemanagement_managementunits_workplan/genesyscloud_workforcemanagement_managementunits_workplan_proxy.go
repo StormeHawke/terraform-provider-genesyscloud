@@ -19,7 +19,7 @@ var internalProxy *workPlanProxy
 // Type definitions for each func on our proxy so we can easily mock them out later
 type createWorkPlanFunc func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlan *platformclientv2.Createworkplan) (*platformclientv2.Workplan, *platformclientv2.APIResponse, error)
 type getAllWorkPlansFunc func(ctx context.Context, p *workPlanProxy, managementUnitId string) (*[]platformclientv2.Workplanlistitemresponse, *platformclientv2.APIResponse, error)
-type getWorkPlanIdByNameFunc func(ctx context.Context, p *workPlanProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error)
+type getWorkPlanIdByNameFunc func(ctx context.Context, p *workPlanProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, error)
 type getWorkPlanByIdFunc func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string) (*platformclientv2.Workplan, *platformclientv2.APIResponse, error)
 type updateWorkPlanFunc func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string, workPlan *platformclientv2.Workplan) (*platformclientv2.Workplan, *platformclientv2.APIResponse, error)
 type validateWorkPlanFunc func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string, workPlan *platformclientv2.Workplanvalidationrequest) (*platformclientv2.Validateworkplanresponse, *platformclientv2.APIResponse, error)
@@ -78,7 +78,7 @@ func (p *workPlanProxy) getAllWorkPlans(ctx context.Context, managementUnitId st
 }
 
 // getWorkPlanIdByName returns the id of a Genesys Cloud work plan by name
-func (p *workPlanProxy) getWorkPlanIdByName(ctx context.Context, managementUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func (p *workPlanProxy) getWorkPlanIdByName(ctx context.Context, managementUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	return p.getWorkPlanIdByNameAttr(ctx, p, managementUnitId, name)
 }
 
@@ -124,19 +124,19 @@ func getAllWorkPlansFn(ctx context.Context, p *workPlanProxy, managementUnitId s
 }
 
 // getWorkPlanIdByNameFn is an implementation of the function to get the id of a work plan by name
-func getWorkPlanIdByNameFn(ctx context.Context, p *workPlanProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func getWorkPlanIdByNameFn(ctx context.Context, p *workPlanProxy, managementUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	workPlans, resp, err := getAllWorkPlansFn(ctx, p, managementUnitId)
 	if err != nil {
-		return "", resp, false, err
+		return "", resp, err
 	}
 
 	for _, workPlan := range *workPlans {
 		if workPlan.Name != nil && *workPlan.Name == name && workPlan.Id != nil {
-			return *workPlan.Id, resp, false, nil
+			return *workPlan.Id, resp, nil
 		}
 	}
 
-	return "", resp, true, fmt.Errorf("unable to find management unit %s work plan with name %s", managementUnitId, name)
+	return "", resp, fmt.Errorf("unable to find management unit %s work plan with name %s", managementUnitId, name)
 }
 
 // getWorkPlanByIdFn is an implementation of the function to get a Genesys Cloud work plan by id
