@@ -134,6 +134,9 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 	return readManagementUnit(ctx, d, meta)
 }
 
+// moveTimeout is how long to wait for the asynchronous move of a management unit to another business unit
+const moveTimeout = 5 * time.Minute
+
 // moveManagementUnitToBusinessUnit moves the management unit to another business unit. The move is processed asynchronously,
 // so it waits until the management unit reports the new business unit.
 func moveManagementUnitToBusinessUnit(ctx context.Context, proxy *managementUnitProxy, managementUnitId string, businessUnitId string) diag.Diagnostics {
@@ -143,7 +146,7 @@ func moveManagementUnitToBusinessUnit(ctx context.Context, proxy *managementUnit
 		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to move management unit %s to business unit %s: %s", managementUnitId, businessUnitId, err), resp)
 	}
 
-	return util.WithRetries(ctx, 5*time.Minute, func() *retry.RetryError {
+	return util.WithRetries(ctx, moveTimeout, func() *retry.RetryError {
 		managementUnit, resp, err := proxy.getManagementUnitById(ctx, managementUnitId)
 		if err != nil {
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s while waiting for the move: %s", managementUnitId, err), resp))
