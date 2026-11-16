@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -105,15 +104,10 @@ func updateServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 	log.Printf("Updating business unit %s service goal template %s", businessUnitId, templateId)
 
 	// The update request carries the current metadata version for optimistic locking, so a version conflict re-reads the service goal template and tries again.
-	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
 	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getServiceGoalTemplateById(ctx, businessUnitId, templateId)
 		if err != nil {
-			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s before update: %s", businessUnitId, templateId, err), resp)
-			if isTransientStatus(resp) {
-				return retry.RetryableError(readDiagErr)
-			}
-			return retry.NonRetryableError(readDiagErr)
+			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s service goal template %s before update: %s", businessUnitId, templateId, err), resp))
 		}
 
 		_, resp, err = proxy.updateServiceGoalTemplate(ctx, businessUnitId, templateId, buildUpdateServiceGoalTemplateRequest(d, current.Metadata))
@@ -121,7 +115,7 @@ func updateServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 			return nil
 		}
 		builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update business unit %s service goal template %s: %s", businessUnitId, templateId, err), resp)
-		if util.IsStatus409(resp) || isTransientStatus(resp) {
+		if util.IsStatus409(resp) {
 			return retry.RetryableError(builtDiagErr)
 		}
 		return retry.NonRetryableError(builtDiagErr)
@@ -132,10 +126,6 @@ func updateServiceGoalTemplate(ctx context.Context, d *schema.ResourceData, meta
 
 	log.Printf("Updated business unit %s service goal template %s", businessUnitId, templateId)
 	return readServiceGoalTemplate(ctx, d, meta)
-}
-
-func isTransientStatus(resp *platformclientv2.APIResponse) bool {
-	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
 }
 
 // deleteServiceGoalTemplate is used by the workforcemanagement_businessunits_servicegoaltemplate resource to delete a business unit service goal template from Genesys Cloud
