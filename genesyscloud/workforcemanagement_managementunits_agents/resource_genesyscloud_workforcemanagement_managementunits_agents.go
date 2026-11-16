@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
@@ -207,12 +206,8 @@ func moveAgents(ctx context.Context, proxy *managementUnitAgentsProxy, userIds [
 	return nil
 }
 
-func isTransientStatus(resp *platformclientv2.APIResponse) bool {
-	return util.IsStatus429(resp) || (resp != nil && resp.StatusCode >= http.StatusInternalServerError)
-}
-
 // updateSchedulable writes the schedulable flag in batches. The api rejects users that are not yet members, so a membership
-// that has not settled is retried. Rate limiting and server errors are transient and are retried too.
+// that has not settled is retried.
 func updateSchedulable(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, updates []platformclientv2.Updatemuagentrequest) diag.Diagnostics {
 	for _, batch := range chunkUpdates(updates, scheduleUpdateBatchSize) {
 		batch := batch
@@ -222,7 +217,7 @@ func updateSchedulable(ctx context.Context, proxy *managementUnitAgentsProxy, ma
 				return nil
 			}
 			builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update agents of management unit %s: %s", managementUnitId, err), resp)
-			if isTransientStatus(resp) || (resp != nil && strings.Contains(strings.ToLower(resp.ErrorMessage), "not found")) {
+			if resp != nil && strings.Contains(strings.ToLower(resp.ErrorMessage), "not found") {
 				return retry.RetryableError(builtDiagErr)
 			}
 			return retry.NonRetryableError(builtDiagErr)
