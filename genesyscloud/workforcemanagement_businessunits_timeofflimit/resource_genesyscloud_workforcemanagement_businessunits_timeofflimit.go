@@ -230,7 +230,7 @@ func isOutsideWindow(resp *platformclientv2.APIResponse) bool {
 func setValues(ctx context.Context, proxy *timeOffLimitProxy, businessUnitId string, limitId string, ranges []valueRange) diag.Diagnostics {
 	for _, chunk := range chunkRanges(ranges, len(ranges)) {
 		chunk := chunk
-		diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+		diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 			current, resp, err := proxy.getTimeOffLimitById(ctx, businessUnitId, limitId)
 			if err != nil {
 				readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read business unit %s time off limit %s before setting its values: %s", businessUnitId, limitId, err), resp)
