@@ -19,7 +19,7 @@ var internalProxy *serviceGoalTemplateProxy
 // Type definitions for each func on our proxy so we can easily mock them out later
 type createServiceGoalTemplateFunc func(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, template *platformclientv2.Createservicegoaltemplate) (*platformclientv2.Servicegoaltemplate, *platformclientv2.APIResponse, error)
 type getAllServiceGoalTemplatesFunc func(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string) (*[]platformclientv2.Servicegoaltemplate, *platformclientv2.APIResponse, error)
-type getServiceGoalTemplateIdByNameFunc func(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error)
+type getServiceGoalTemplateIdByNameFunc func(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error)
 type getServiceGoalTemplateByIdFunc func(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, templateId string) (*platformclientv2.Servicegoaltemplate, *platformclientv2.APIResponse, error)
 type updateServiceGoalTemplateFunc func(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, templateId string, template *platformclientv2.Updateservicegoaltemplate) (*platformclientv2.Servicegoaltemplate, *platformclientv2.APIResponse, error)
 type deleteServiceGoalTemplateFunc func(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, templateId string) (*platformclientv2.APIResponse, error)
@@ -75,7 +75,7 @@ func (p *serviceGoalTemplateProxy) getAllServiceGoalTemplates(ctx context.Contex
 }
 
 // getServiceGoalTemplateIdByName returns the id of a Genesys Cloud service goal template by name
-func (p *serviceGoalTemplateProxy) getServiceGoalTemplateIdByName(ctx context.Context, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func (p *serviceGoalTemplateProxy) getServiceGoalTemplateIdByName(ctx context.Context, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	return p.getServiceGoalTemplateIdByNameAttr(ctx, p, businessUnitId, name)
 }
 
@@ -115,19 +115,19 @@ func getAllServiceGoalTemplatesFn(ctx context.Context, p *serviceGoalTemplatePro
 }
 
 // getServiceGoalTemplateIdByNameFn is an implementation of the function to get the id of a service goal template by name
-func getServiceGoalTemplateIdByNameFn(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, bool, error) {
+func getServiceGoalTemplateIdByNameFn(ctx context.Context, p *serviceGoalTemplateProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	templates, resp, err := getAllServiceGoalTemplatesFn(ctx, p, businessUnitId)
 	if err != nil {
-		return "", resp, false, err
+		return "", resp, err
 	}
 
 	for _, template := range *templates {
 		if *template.Name == name {
-			return *template.Id, resp, false, nil
+			return *template.Id, resp, nil
 		}
 	}
 
-	return "", resp, true, fmt.Errorf("unable to find business unit %s service goal template with name %s", businessUnitId, name)
+	return "", resp, fmt.Errorf("unable to find business unit %s service goal template with name %s", businessUnitId, name)
 }
 
 // getServiceGoalTemplateByIdFn is an implementation of the function to get a Genesys Cloud service goal template by id
