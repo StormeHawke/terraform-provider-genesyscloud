@@ -33,9 +33,9 @@ The following OAuth scopes are required to use this resource:
 ## Example Usage
 
 ```terraform
-data "genesyscloud_workforcemanagement_businessunits_timeoffplan" "vacation" {
+data "genesyscloud_workforcemanagement_businessunits_timeoffplan" "example_time_off_plan" {
   business_unit_id = genesyscloud_workforcemanagement_businessunits.example_with_settings.id
-  name             = "Vacation"
+  name             = "Example Time Off Plan"
 }
 ```
 

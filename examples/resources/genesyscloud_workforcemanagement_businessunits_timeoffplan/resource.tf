@@ -1,9 +1,9 @@
-resource "genesyscloud_workforcemanagement_businessunits_timeoffplan" "vacation" {
+resource "genesyscloud_workforcemanagement_businessunits_timeoffplan" "example_time_off_plan" {
   business_unit_id = genesyscloud_workforcemanagement_businessunits.example_with_settings.id
-  name             = "Vacation"
+  name             = "Example Time Off Plan"
   enabled          = true
 
-  activity_code_ids = [genesyscloud_workforcemanagement_businessunits_activitycode.team_meeting.id]
+  activity_code_ids = [genesyscloud_workforcemanagement_businessunits_activitycode.example_activity_code.id]
 
   # Checking limits needs the plan to count against them, and every management unit it applies to needs a time off limit first
   auto_approval_rule            = "CheckLimits"
@@ -18,8 +18,8 @@ resource "genesyscloud_workforcemanagement_businessunits_timeoffplan" "vacation"
   }
 
   business_unit_association {
-    management_unit_ids = [genesyscloud_workforcemanagement_managementunits.contact_center.id]
+    management_unit_ids = [genesyscloud_workforcemanagement_managementunits.example_management_unit.id]
   }
 
-  depends_on = [genesyscloud_workforcemanagement_businessunits_timeofflimit.contact_center]
+  depends_on = [genesyscloud_workforcemanagement_businessunits_timeofflimit.example_limit]
 }
