@@ -3,7 +3,6 @@ package workforcemanagement_managementunits
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -24,7 +23,7 @@ func dataSourceManagementUnitRead(ctx context.Context, d *schema.ResourceData, m
 
 	name := d.Get("name").(string)
 
-	return util.WithRetries(ctx, 15*time.Second, func() *retry.RetryError {
+	return util.WithRetries(ctx, util.LookupRetryTimeout, func() *retry.RetryError {
 		managementUnitId, resp, retryable, err := proxy.getManagementUnitIdByName(ctx, name)
 
 		if err != nil && !retryable {

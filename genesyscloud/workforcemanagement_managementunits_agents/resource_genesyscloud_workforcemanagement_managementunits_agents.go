@@ -216,7 +216,7 @@ func isTransientStatus(resp *platformclientv2.APIResponse) bool {
 func updateSchedulable(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, updates []platformclientv2.Updatemuagentrequest) diag.Diagnostics {
 	for _, batch := range chunkUpdates(updates, scheduleUpdateBatchSize) {
 		batch := batch
-		diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+		diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 			resp, err := proxy.updateAgents(ctx, managementUnitId, batch)
 			if err == nil {
 				return nil

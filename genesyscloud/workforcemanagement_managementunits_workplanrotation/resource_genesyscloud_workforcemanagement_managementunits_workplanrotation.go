@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -79,7 +78,7 @@ func createWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta in
 
 // disableWorkPlanRotation disables a work plan rotation that was just created
 func disableWorkPlanRotation(ctx context.Context, proxy *workPlanRotationProxy, managementUnitId string, rotationId string) diag.Diagnostics {
-	return util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+	return util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanRotationById(ctx, managementUnitId, rotationId)
 		if err != nil {
 			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before disabling it: %s", managementUnitId, rotationId, err), resp)
@@ -148,7 +147,7 @@ func updateWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta in
 
 	// The patch is built against the current agents of the work plan rotation and carries its version for optimistic locking,
 	// so a version conflict reads the work plan rotation again and rebuilds the patch.
-	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanRotationById(ctx, managementUnitId, rotationId)
 		if err != nil {
 			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before update: %s", managementUnitId, rotationId, err), resp)
@@ -223,7 +222,7 @@ func deleteWorkPlanRotationAndRemoveAgents(ctx context.Context, proxy *workPlanR
 
 // removeAgents removes every agent from the work plan rotation. The patch carries the version, so a conflict reads the work plan rotation again.
 func removeAgents(ctx context.Context, proxy *workPlanRotationProxy, managementUnitId string, rotationId string) diag.Diagnostics {
-	return util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+	return util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanRotationById(ctx, managementUnitId, rotationId)
 		if err != nil {
 			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan rotation %s before removing its agents: %s", managementUnitId, rotationId, err), resp)
