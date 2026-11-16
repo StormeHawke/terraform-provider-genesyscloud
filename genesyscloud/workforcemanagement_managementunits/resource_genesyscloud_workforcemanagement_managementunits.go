@@ -99,7 +99,7 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 
 	// The update request carries the current settings metadata version for optimistic locking, so a version conflict re-reads the management unit and tries again.
 	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the request from the freshly read metadata.
-	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getManagementUnitById(ctx, d.Id())
 		if err != nil {
 			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s before update: %s", d.Id(), err), resp)
