@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/retry"
@@ -129,7 +128,7 @@ func updateWorkPlan(ctx context.Context, d *schema.ResourceData, meta interface{
 	// The patch is built against the current shifts and agents of the work plan, and carries its version for optimistic
 	// locking, so a version conflict reads the work plan again and rebuilds the patch.
 	// Rate limiting and server errors are transient, and retrying is safe because every attempt rebuilds the patch from the freshly read work plan.
-	diagErr := util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+	diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanById(ctx, managementUnitId, workPlanId)
 		if err != nil {
 			readDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan %s before update: %s", managementUnitId, workPlanId, err), resp)
@@ -210,7 +209,7 @@ func deleteWorkPlanAndUnassignAgents(ctx context.Context, proxy *workPlanProxy, 
 
 // unassignAgents removes the agents from the work plan. The patch carries the work plan version, so a conflict reads the work plan again.
 func unassignAgents(ctx context.Context, proxy *workPlanProxy, managementUnitId string, workPlanId string, agentIds []string) diag.Diagnostics {
-	return util.WithRetries(ctx, 60*time.Second, func() *retry.RetryError {
+	return util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
 		current, resp, err := proxy.getWorkPlanById(ctx, managementUnitId, workPlanId)
 		if err != nil {
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s work plan %s before unassigning its agents: %s", managementUnitId, workPlanId, err), resp))
