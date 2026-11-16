@@ -45,9 +45,9 @@ The following OAuth scopes are required to use this resource:
 ## Example Usage
 
 ```terraform
-resource "genesyscloud_workforcemanagement_managementunits_workplan" "weekday_support" {
-  management_unit_id = genesyscloud_workforcemanagement_managementunits.contact_center.id
-  name               = "Weekday Support"
+resource "genesyscloud_workforcemanagement_managementunits_workplan" "example_work_plan" {
+  management_unit_id = genesyscloud_workforcemanagement_managementunits.example_management_unit.id
+  name               = "Example Work Plan"
   enabled            = true
 
   constrain_weekly_paid_time = true
@@ -65,7 +65,7 @@ resource "genesyscloud_workforcemanagement_managementunits_workplan" "weekday_su
     exact_paid_time_minutes                = 480
 
     activities {
-      activity_code_id                      = genesyscloud_workforcemanagement_businessunits_activitycode.team_meeting.id
+      activity_code_id                      = genesyscloud_workforcemanagement_businessunits_activitycode.example_activity_code.id
       length_minutes                        = 30
       start_time_is_relative_to_shift_start = true
       flexible_start_time                   = false

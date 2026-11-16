@@ -1,5 +1,5 @@
-resource "genesyscloud_workforcemanagement_managementunits_agents" "contact_center" {
-  management_unit_id = genesyscloud_workforcemanagement_managementunits.contact_center.id
+resource "genesyscloud_workforcemanagement_managementunits_agents" "example_agents" {
+  management_unit_id = genesyscloud_workforcemanagement_managementunits.example_management_unit.id
 
   schedulable_user_ids = [
     genesyscloud_user.example_user.id,
