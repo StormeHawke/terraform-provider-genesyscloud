@@ -103,7 +103,7 @@ The following OAuth scopes are required to use this resource:
 ## Example Usage
 
 ```terraform
-data "genesyscloud_workforcemanagement_managementunits" "contact_center" {
+data "genesyscloud_workforcemanagement_managementunits" "example_management_unit" {
   name = "Contact Center MU"
 }
 ```

@@ -34,9 +34,9 @@ The following OAuth scopes are required to use this resource:
 ## Example Usage
 
 ```terraform
-data "genesyscloud_workforcemanagement_managementunits_workplanrotation" "weekly_rotation" {
-  management_unit_id = genesyscloud_workforcemanagement_managementunits.contact_center.id
-  name               = "Weekly Rotation"
+data "genesyscloud_workforcemanagement_managementunits_workplanrotation" "example_rotation" {
+  management_unit_id = genesyscloud_workforcemanagement_managementunits.example_management_unit.id
+  name               = "Example Work Plan Rotation"
 }
 ```
 
