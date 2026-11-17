@@ -15,14 +15,15 @@ import (
    for the resource.
 */
 
-// dataSourceManagementUnitRead retrieves by name the id in question
+// dataSourceManagementUnitRead retrieves the id of the management unit with the given name in the given business unit
 func dataSourceManagementUnitRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
 	proxy := getManagementUnitProxy(sdkConfig)
 
+	businessUnitId := d.Get("business_unit_id").(string)
 	name := d.Get("name").(string)
 
-	managementUnitId, resp, err := proxy.getManagementUnitIdByName(ctx, name)
+	managementUnitId, resp, err := proxy.getManagementUnitIdByName(ctx, businessUnitId, name)
 	if err != nil {
 		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Error searching management unit %s | error: %s", name, err), resp)
 	}

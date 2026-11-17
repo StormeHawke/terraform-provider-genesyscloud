@@ -263,7 +263,7 @@ func ResourceManagementUnit() *schema.Resource {
 				Computed:    true,
 			},
 			"settings": {
-				Description: `The configuration settings for this management unit. Short term forecasting settings are not included because Genesys Cloud has moved them to the business unit.`,
+				Description: `The configuration settings for this management unit.`,
 				Type:        schema.TypeList,
 				Optional:    true,
 				Computed:    true,
@@ -293,12 +293,17 @@ func ManagementUnitExporter() *resourceExporter.ResourceExporter {
 // DataSourceManagementUnit registers the genesyscloud_workforcemanagement_managementunits data source
 func DataSourceManagementUnit() *schema.Resource {
 	return &schema.Resource{
-		Description: `Genesys Cloud workforce management management unit data source. Select a management unit by name`,
+		Description: `Genesys Cloud workforce management management unit data source. Select a management unit by name within a business unit`,
 		ReadContext: provider.ReadWithPooledClient(dataSourceManagementUnitRead),
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
+			"business_unit_id": {
+				Description: `Id of the business unit the management unit belongs to. Management unit names are only unique within a business unit.`,
+				Type:        schema.TypeString,
+				Required:    true,
+			},
 			"name": {
 				Description: `Management unit name`,
 				Type:        schema.TypeString,
