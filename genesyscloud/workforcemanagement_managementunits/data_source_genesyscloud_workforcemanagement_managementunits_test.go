@@ -26,7 +26,7 @@ func TestAccDataSourceManagementUnit(t *testing.T) {
 			{
 				Config: generateTestBusinessUnit(buResourceLabel, buName) +
 					GenerateManagementUnitResource(resourceLabel, name, businessUnitIdRef(buResourceLabel)) +
-					generateManagementUnitDataSource(dataSourceLabel, name, ResourceType+"."+resourceLabel),
+					generateManagementUnitDataSource(dataSourceLabel, businessUnitIdRef(buResourceLabel), name, ResourceType+"."+resourceLabel),
 				Check: resource.TestCheckResourceAttrPair(
 					"data."+ResourceType+"."+dataSourceLabel, "id",
 					ResourceType+"."+resourceLabel, "id",
@@ -36,10 +36,11 @@ func TestAccDataSourceManagementUnit(t *testing.T) {
 	})
 }
 
-func generateManagementUnitDataSource(dataSourceLabel string, name string, dependsOn string) string {
+func generateManagementUnitDataSource(dataSourceLabel string, businessUnitId string, name string, dependsOn string) string {
 	return fmt.Sprintf(`data "%s" "%s" {
-	name       = "%s"
-	depends_on = [%s]
+	business_unit_id = %s
+	name             = "%s"
+	depends_on       = [%s]
 }
-`, ResourceType, dataSourceLabel, name, dependsOn)
+`, ResourceType, dataSourceLabel, businessUnitId, name, dependsOn)
 }
