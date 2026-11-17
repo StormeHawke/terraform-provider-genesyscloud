@@ -6,7 +6,6 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
@@ -88,10 +87,9 @@ func ResourceWorkPlanRotation() *schema.Resource {
 				ForceNew:    true,
 			},
 			"name": {
-				Description:  `The name of the work plan rotation. Names must be unique within a management unit.`,
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringIsNotEmpty,
+				Description: `The name of the work plan rotation. Names must be unique within a management unit.`,
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"enabled": {
 				Description: `Whether the work plan rotation is enabled for scheduling. Genesys Cloud always creates a work plan rotation enabled, so creating one that is disabled takes a second request.`,
