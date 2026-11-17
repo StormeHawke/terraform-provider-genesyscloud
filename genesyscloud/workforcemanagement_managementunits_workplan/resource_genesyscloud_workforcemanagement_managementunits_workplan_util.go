@@ -668,28 +668,41 @@ func validateWorkPlanDuringPlan(ctx context.Context, diff *schema.ResourceDiff, 
 	}
 
 	managementUnitId := diff.Get("management_unit_id").(string)
-	workPlanId := newWorkPlanId
-	if diff.Id() != "" {
-		_, workPlanId = SplitWorkPlanTerraformId(diff.Id())
+	proxy := getWorkPlanProxy(providerMeta.ClientConfig)
+	if diff.Id() == "" {
+		return validateNewWorkPlan(ctx, proxy, managementUnitId, diff.GetRawConfig())
 	}
-	return validateConfiguredWorkPlan(ctx, getWorkPlanProxy(providerMeta.ClientConfig), managementUnitId, workPlanId, diff.GetRawConfig())
+	_, workPlanId := SplitWorkPlanTerraformId(diff.Id())
+	return validateExistingWorkPlan(ctx, proxy, managementUnitId, workPlanId, diff.GetRawConfig())
 }
 
-// validateConfiguredWorkPlan validates the configured changes on top of the current work plan, or as a new work plan when the id is "new"
-func validateConfiguredWorkPlan(ctx context.Context, proxy *workPlanProxy, managementUnitId string, workPlanId string, config cty.Value) error {
-	if managementUnitId == "" || !config.IsWhollyKnown() {
+// validateNewWorkPlan validates the configuration as a work plan that does not exist yet
+func validateNewWorkPlan(ctx context.Context, proxy *workPlanProxy, managementUnitId string, config cty.Value) error {
+	if !canValidateWorkPlan(managementUnitId, config) {
 		return nil
 	}
+	return validateWorkPlanRequest(ctx, proxy, managementUnitId, newWorkPlanId, &platformclientv2.Workplan{}, config)
+}
 
-	current := &platformclientv2.Workplan{}
-	if workPlanId != newWorkPlanId {
-		existing, _, err := proxy.getWorkPlanById(ctx, managementUnitId, workPlanId)
-		if err != nil {
-			return nil
-		}
-		current = existing
+// validateExistingWorkPlan validates the configured changes on top of the current work plan
+func validateExistingWorkPlan(ctx context.Context, proxy *workPlanProxy, managementUnitId string, workPlanId string, config cty.Value) error {
+	if !canValidateWorkPlan(managementUnitId, config) {
+		return nil
 	}
+	current, _, err := proxy.getWorkPlanById(ctx, managementUnitId, workPlanId)
+	if err != nil {
+		return nil
+	}
+	return validateWorkPlanRequest(ctx, proxy, managementUnitId, workPlanId, current, config)
+}
 
+// canValidateWorkPlan reports whether there is enough to validate: the management unit has to be known, and so does the whole configuration
+func canValidateWorkPlan(managementUnitId string, config cty.Value) bool {
+	return managementUnitId != "" && config.IsWhollyKnown()
+}
+
+// validateWorkPlanRequest asks Genesys Cloud to validate the configured changes on top of the current work plan, and fails with the reasons if it is not valid
+func validateWorkPlanRequest(ctx context.Context, proxy *workPlanProxy, managementUnitId string, workPlanId string, current *platformclientv2.Workplan, config cty.Value) error {
 	request, err := buildUpdateWorkPlanRequest(config, current)
 	if err != nil {
 		// Ambiguous shift names on the work plan are reported when it is applied
