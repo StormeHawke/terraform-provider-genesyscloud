@@ -19,7 +19,7 @@ var internalProxy *managementUnitProxy
 // Type definitions for each func on our proxy so we can easily mock them out later
 type createManagementUnitFunc func(ctx context.Context, p *managementUnitProxy, managementUnit *platformclientv2.Createmanagementunitapirequest) (*platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
 type getAllManagementUnitsFunc func(ctx context.Context, p *managementUnitProxy) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
-type getManagementUnitIdByNameFunc func(ctx context.Context, p *managementUnitProxy, name string) (string, *platformclientv2.APIResponse, error)
+type getManagementUnitIdByNameFunc func(ctx context.Context, p *managementUnitProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error)
 type getManagementUnitByIdFunc func(ctx context.Context, p *managementUnitProxy, managementUnitId string) (*platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
 type updateManagementUnitFunc func(ctx context.Context, p *managementUnitProxy, managementUnitId string, managementUnit *platformclientv2.Updatemanagementunitrequest) (*platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
 type moveManagementUnitFunc func(ctx context.Context, p *managementUnitProxy, managementUnitId string, businessUnitId string) (*platformclientv2.Movemanagementunitresponse, *platformclientv2.APIResponse, error)
@@ -69,14 +69,14 @@ func (p *managementUnitProxy) createManagementUnit(ctx context.Context, manageme
 	return p.createManagementUnitAttr(ctx, p, managementUnit)
 }
 
-// getAllManagementUnits retrieves all Genesys Cloud management units
+// getAllManagementUnits retrieves all Genesys Cloud management units in the organization, across every business unit
 func (p *managementUnitProxy) getAllManagementUnits(ctx context.Context) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error) {
 	return p.getAllManagementUnitsAttr(ctx, p)
 }
 
-// getManagementUnitIdByName returns the id of a Genesys Cloud management unit by name
-func (p *managementUnitProxy) getManagementUnitIdByName(ctx context.Context, name string) (string, *platformclientv2.APIResponse, error) {
-	return p.getManagementUnitIdByNameAttr(ctx, p, name)
+// getManagementUnitIdByName returns the id of the Genesys Cloud management unit with the given name in the given business unit
+func (p *managementUnitProxy) getManagementUnitIdByName(ctx context.Context, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
+	return p.getManagementUnitIdByNameAttr(ctx, p, businessUnitId, name)
 }
 
 // getManagementUnitById returns a single Genesys Cloud management unit, including its settings, by id
@@ -115,24 +115,24 @@ func getAllManagementUnitsFn(ctx context.Context, p *managementUnitProxy) (*[]pl
 	return listing.Entities, resp, nil
 }
 
-// getManagementUnitIdByNameFn is an implementation of the function to get the id of a management unit by name
-func getManagementUnitIdByNameFn(ctx context.Context, p *managementUnitProxy, name string) (string, *platformclientv2.APIResponse, error) {
+// getManagementUnitIdByNameFn is an implementation of the function to get the id of a management unit by name within a business unit.
+// Names are only unique within a business unit, so the same name can exist in several.
+func getManagementUnitIdByNameFn(ctx context.Context, p *managementUnitProxy, businessUnitId string, name string) (string, *platformclientv2.APIResponse, error) {
 	managementUnits, resp, err := getAllManagementUnitsFn(ctx, p)
 	if err != nil {
 		return "", resp, err
 	}
 
 	for _, managementUnit := range *managementUnits {
-		if *managementUnit.Name == name {
+		if *managementUnit.BusinessUnit.Id == businessUnitId && *managementUnit.Name == name {
 			return *managementUnit.Id, resp, nil
 		}
 	}
 
-	return "", resp, fmt.Errorf("unable to find management unit with name %s", name)
+	return "", resp, fmt.Errorf("unable to find management unit with name %s in business unit %s", name, businessUnitId)
 }
 
 // settingsExpands requests every settings section, because settings are only returned when expanded and this resource manages all of them.
-// settings.shortTermForecasting is deliberately not requested: it is deprecated on management units and now lives on the business unit.
 var settingsExpands = []string{"settings", "settings.adherence", "settings.timeOff", "settings.scheduling", "settings.shiftTrading"}
 
 // getManagementUnitByIdFn is an implementation of the function to get a Genesys Cloud management unit by id, with all of its settings expanded

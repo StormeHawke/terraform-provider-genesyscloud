@@ -168,7 +168,7 @@ resource "genesyscloud_workforcemanagement_managementunits" "example_management_
 ### Optional
 
 - `division_id` (String) The id of the division this management unit belongs to. Defaults to the home division.
-- `settings` (Block List, Max: 1) The configuration settings for this management unit. Short term forecasting settings are not included because Genesys Cloud has moved them to the business unit. (see [below for nested schema](#nestedblock--settings))
+- `settings` (Block List, Max: 1) The configuration settings for this management unit. (see [below for nested schema](#nestedblock--settings))
 
 ### Read-Only
 
