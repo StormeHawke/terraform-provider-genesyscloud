@@ -460,7 +460,7 @@ func TestUnitValidateConfiguredWorkPlanFailsAnInvalidNewWorkPlan(t *testing.T) {
 		return invalidResponse(), nil, nil
 	}
 
-	err := validateConfiguredWorkPlan(context.Background(), proxy, "mu", newWorkPlanId, knownConfig())
+	err := validateNewWorkPlan(context.Background(), proxy, "mu", knownConfig())
 	if err == nil || !strings.Contains(err.Error(), "NoShifts") {
 		t.Errorf("expected the validation messages in the error, got %v", err)
 	}
@@ -484,7 +484,7 @@ func TestUnitValidateConfiguredWorkPlanValidatesChangesOnTopOfTheCurrentWorkPlan
 		"shifts": cty.ListValEmpty(cty.Object(map[string]cty.Type{"name": cty.String})),
 	})
 
-	if err := validateConfiguredWorkPlan(context.Background(), proxy, "mu", "plan-1", config); err != nil {
+	if err := validateExistingWorkPlan(context.Background(), proxy, "mu", "plan-1", config); err != nil {
 		t.Fatalf("expected a valid work plan to pass, got %v", err)
 	}
 	if request == nil || request.Shifts == nil || len(*request.Shifts) != 1 || !*(*request.Shifts)[0].Delete {
@@ -504,13 +504,13 @@ func TestUnitValidateConfiguredWorkPlanSkipsWhatItCannotCheck(t *testing.T) {
 	}
 
 	unknown := cty.ObjectVal(map[string]cty.Value{"name": cty.UnknownVal(cty.String)})
-	if err := validateConfiguredWorkPlan(context.Background(), proxy, "mu", newWorkPlanId, unknown); err != nil || asked {
+	if err := validateNewWorkPlan(context.Background(), proxy, "mu", unknown); err != nil || asked {
 		t.Errorf("a configuration with unknown values must not be validated, got %v (asked %v)", err, asked)
 	}
-	if err := validateConfiguredWorkPlan(context.Background(), proxy, "", newWorkPlanId, knownConfig()); err != nil || asked {
+	if err := validateNewWorkPlan(context.Background(), proxy, "", knownConfig()); err != nil || asked {
 		t.Errorf("an unknown management unit must not be validated, got %v (asked %v)", err, asked)
 	}
-	if err := validateConfiguredWorkPlan(context.Background(), proxy, "mu", "plan-1", knownConfig()); err != nil || asked {
+	if err := validateExistingWorkPlan(context.Background(), proxy, "mu", "plan-1", knownConfig()); err != nil || asked {
 		t.Errorf("a work plan that cannot be read must not fail the plan, got %v (asked %v)", err, asked)
 	}
 }
@@ -520,7 +520,7 @@ func TestUnitValidateConfiguredWorkPlanDoesNotFailThePlanWhenValidationFails(t *
 	proxy.validateWorkPlanAttr = func(ctx context.Context, p *workPlanProxy, managementUnitId string, workPlanId string, workPlan *platformclientv2.Workplanvalidationrequest) (*platformclientv2.Validateworkplanresponse, *platformclientv2.APIResponse, error) {
 		return nil, &platformclientv2.APIResponse{StatusCode: http.StatusInternalServerError}, fmt.Errorf("validate is down")
 	}
-	if err := validateConfiguredWorkPlan(context.Background(), proxy, "mu", newWorkPlanId, knownConfig()); err != nil {
+	if err := validateNewWorkPlan(context.Background(), proxy, "mu", knownConfig()); err != nil {
 		t.Errorf("an unavailable validation must not fail the plan, got %v", err)
 	}
 }
