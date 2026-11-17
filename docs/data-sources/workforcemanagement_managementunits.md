@@ -2,13 +2,13 @@
 page_title: "genesyscloud_workforcemanagement_managementunits Data Source - terraform-provider-genesyscloud"
 subcategory: ""
 description: |-
-  Genesys Cloud workforce management management unit data source. Select a management unit by name
+  Genesys Cloud workforce management management unit data source. Select a management unit by name within a business unit
 ---
 # genesyscloud_workforcemanagement_managementunits (Data Source)
 
 <!-- This document is automatically generated. Do not edit manually. Make changes to the schema, examples, or apis.md files in examples/data-sources/ and run 'make docs' to regenerate. -->
 
-Genesys Cloud workforce management management unit data source. Select a management unit by name
+Genesys Cloud workforce management management unit data source. Select a management unit by name within a business unit
 
 ## API Usage
 
@@ -104,7 +104,8 @@ The following OAuth scopes are required to use this resource:
 
 ```terraform
 data "genesyscloud_workforcemanagement_managementunits" "example_management_unit" {
-  name = "Example Management Unit"
+  business_unit_id = genesyscloud_workforcemanagement_businessunits.example_with_settings.id
+  name             = "Example Management Unit"
 }
 ```
 
@@ -113,6 +114,7 @@ data "genesyscloud_workforcemanagement_managementunits" "example_management_unit
 
 ### Required
 
+- `business_unit_id` (String) Id of the business unit the management unit belongs to. Management unit names are only unique within a business unit.
 - `name` (String) Management unit name
 
 ### Read-Only
