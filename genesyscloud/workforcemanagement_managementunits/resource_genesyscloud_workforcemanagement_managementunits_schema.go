@@ -156,9 +156,10 @@ var shiftTradeActivityRuleResource = &schema.Resource{
 			Required:    true,
 		},
 		"activity_code_id_replacement": {
-			Description: `The id of the default activity code that replaces activities of the original category. Required if action is Replace.`,
+			Description: `The id of the default activity code that replaces activities of the original category. Required if action is Replace. The id of an activity code resource can be used.`,
 			Type:        schema.TypeString,
 			Optional:    true,
+			StateFunc:   ModifyActivityCodeIdStateValue,
 		},
 	},
 }
@@ -176,9 +177,10 @@ var shiftTradeExternalActivityRuleResource = &schema.Resource{
 			Required:    true,
 		},
 		"activity_code_id_replacement": {
-			Description: `The id of the default activity code that replaces external activities. Required if action is KeepWithAgent.`,
+			Description: `The id of the default activity code that replaces external activities. Required if action is KeepWithAgent. The id of an activity code resource can be used.`,
 			Type:        schema.TypeString,
 			Optional:    true,
+			StateFunc:   ModifyActivityCodeIdStateValue,
 		},
 	},
 }
@@ -276,8 +278,11 @@ func ResourceManagementUnit() *schema.Resource {
 func ManagementUnitExporter() *resourceExporter.ResourceExporter {
 	return &resourceExporter.ResourceExporter{
 		GetResourcesFunc: provider.GetAllWithPooledClient(getAllManagementUnits),
-		// Ignored activity code ids are exported as plain ids: the activity code resource uses composite
-		// ids (businessUnitId/activityCodeId) as exporter keys, so they cannot be matched to references.
+		// The activity code ids are resolved to references by a custom resolver, because the activity code resource uses composite
+		// ids (businessUnitId/activityCodeId) as exporter keys, which are built from the business unit of the management unit.
+		CustomAttributeResolver: map[string]*resourceExporter.RefAttrCustomResolver{
+			"settings": {ResolverFunc: resolveActivityCodeReferences},
+		},
 		RefAttrs: map[string]*resourceExporter.RefAttrSettings{
 			"business_unit_id": {RefType: "genesyscloud_workforcemanagement_businessunits"},
 			"division_id":      {RefType: "genesyscloud_auth_division"},
