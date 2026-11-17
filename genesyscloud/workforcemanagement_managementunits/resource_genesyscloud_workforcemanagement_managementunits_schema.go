@@ -2,7 +2,6 @@ package workforcemanagement_managementunits
 
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
@@ -246,10 +245,9 @@ func ResourceManagementUnit() *schema.Resource {
 		SchemaVersion: 1,
 		Schema: map[string]*schema.Schema{
 			"name": {
-				Description:  `The name of the management unit.`,
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringIsNotEmpty,
+				Description: `The name of the management unit.`,
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"business_unit_id": {
 				Description: `The id of the business unit this management unit belongs to. Changing this attribute moves the management unit to the new business unit.`,

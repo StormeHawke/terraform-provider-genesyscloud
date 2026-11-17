@@ -2,7 +2,6 @@ package workforcemanagement_businessunits_planninggroup
 
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
@@ -75,10 +74,9 @@ func ResourcePlanningGroup() *schema.Resource {
 				ForceNew:    true,
 			},
 			"name": {
-				Description:  `The name of the planning group.`,
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringIsNotEmpty,
+				Description: `The name of the planning group.`,
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"service_goal_template_id": {
 				Description: `The id of the service goal template to associate with this planning group.`,
