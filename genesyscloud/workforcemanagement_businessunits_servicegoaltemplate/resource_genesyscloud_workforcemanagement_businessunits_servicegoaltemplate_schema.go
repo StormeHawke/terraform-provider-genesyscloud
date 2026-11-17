@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
@@ -176,10 +175,9 @@ func ResourceServiceGoalTemplate() *schema.Resource {
 				ForceNew:    true,
 			},
 			"name": {
-				Description:  `The name of the service goal template.`,
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringIsNotEmpty,
+				Description: `The name of the service goal template.`,
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"service_level": {
 				Description: `Service level targets for this service goal template.`,
