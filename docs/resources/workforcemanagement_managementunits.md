@@ -284,7 +284,7 @@ Required:
 
 Optional:
 
-- `activity_code_id_replacement` (String) The id of the default activity code that replaces activities of the original category. Required if action is Replace.
+- `activity_code_id_replacement` (String) The id of the default activity code that replaces activities of the original category. Required if action is Replace. The id of an activity code resource can be used.
 
 
 <a id="nestedblock--settings--shift_trading--external_activity_rules"></a>
@@ -297,7 +297,7 @@ Required:
 
 Optional:
 
-- `activity_code_id_replacement` (String) The id of the default activity code that replaces external activities. Required if action is KeepWithAgent.
+- `activity_code_id_replacement` (String) The id of the default activity code that replaces external activities. Required if action is KeepWithAgent. The id of an activity code resource can be used.
 
 
 
