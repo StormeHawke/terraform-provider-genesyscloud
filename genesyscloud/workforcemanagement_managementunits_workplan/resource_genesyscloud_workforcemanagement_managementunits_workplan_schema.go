@@ -3,7 +3,6 @@ package workforcemanagement_managementunits_workplan
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
@@ -99,10 +98,9 @@ var activityResource = &schema.Resource{
 var shiftResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"name": {
-			Description:  `The name of the shift. Shift names must be unique within a work plan, because shifts are matched to existing shifts by name.`,
-			Type:         schema.TypeString,
-			Required:     true,
-			ValidateFunc: validation.StringIsNotEmpty,
+			Description: `The name of the shift. Shift names must be unique within a work plan, because shifts are matched to existing shifts by name.`,
+			Type:        schema.TypeString,
+			Required:    true,
 		},
 		"days":                                   daySet(`The days of the week this shift applies to. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.`),
 		"flexible_start_time":                    optionalBool(`Whether the start time of the shift is flexible.`),
@@ -163,10 +161,9 @@ func ResourceWorkPlan() *schema.Resource {
 				ForceNew:    true,
 			},
 			"name": {
-				Description:  `The name of the work plan.`,
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validation.StringIsNotEmpty,
+				Description: `The name of the work plan.`,
+				Type:        schema.TypeString,
+				Required:    true,
 			},
 			"enabled": optionalBool(`Whether the work plan is enabled for scheduling. An enabled work plan that fails validation is rejected by Genesys Cloud.`),
 			"valid": {
