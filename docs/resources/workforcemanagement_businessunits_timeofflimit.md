@@ -83,6 +83,6 @@ Required:
 
 Optional:
 
-- `limit_minutes_per_day` (List of Number) The time off limit in minutes for each day of the range, starting on start_date. Use it when the granularity is Daily. A day without a limit has a value of 0. A range covers at most 366 days.
-- `limit_minutes_per_fifteen_minutes` (List of Number) The time off limit in minutes for each fifteen minute interval of the range, starting at midnight of start_date, 96 intervals per day. Use it when the granularity is FifteenMinutes. A range covers at most 366 days.
+- `limit_minutes_per_day` (List of Number) The time off limit in minutes for each day of the range, starting on start_date. Use it when the granularity is Daily. A day without a limit has a value of 0.
+- `limit_minutes_per_fifteen_minutes` (List of Number) The time off limit in minutes for each fifteen minute interval of the range, starting at midnight of start_date, 96 intervals per day. Use it when the granularity is FifteenMinutes.
 

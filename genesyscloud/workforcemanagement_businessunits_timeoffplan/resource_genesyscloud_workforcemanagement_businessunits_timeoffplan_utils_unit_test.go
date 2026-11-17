@@ -284,24 +284,3 @@ func TestUnitValidateOverrideDatesAreUnique(t *testing.T) {
 		t.Errorf("expected a date listed twice, even with different types, to be rejected, got %v", err)
 	}
 }
-
-func TestUnitValidateOverrideDatesWindow(t *testing.T) {
-	today := time.Date(2026, 11, 6, 15, 30, 0, 0, time.UTC)
-
-	if err := validateOverrideDatesWindow([]overrideDate{{date: "2026-08-05", dateTyp: "Blocked"}, {date: "2030-01-01", dateTyp: "Blocked"}}, today); err != nil {
-		t.Errorf("a date exactly 93 days back and a far future date must be accepted, got %v", err)
-	}
-
-	err := validateOverrideDatesWindow([]overrideDate{{date: "2026-08-04", dateTyp: "Blocked"}}, today)
-	if err == nil || !strings.Contains(err.Error(), "2026-08-04") || !strings.Contains(err.Error(), "remove the dates that have passed") {
-		t.Errorf("a date 94 days back must be rejected with advice on what to do, got %v", err)
-	}
-
-	tooMany := make([]overrideDate, maxOverrideDates+1)
-	for i := range tooMany {
-		tooMany[i] = overrideDate{date: today.AddDate(0, 0, i).Format(dateLayout), dateTyp: "Blocked"}
-	}
-	if err := validateOverrideDatesWindow(tooMany, today); err == nil || !strings.Contains(err.Error(), "at most 550") {
-		t.Errorf("more override dates than allowed must be rejected, got %v", err)
-	}
-}

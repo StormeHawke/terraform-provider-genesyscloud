@@ -546,34 +546,6 @@ func validateRuleSettings(rule string, restrictedActivityCodes int, countAgainst
 	return nil
 }
 
-const (
-	// maxOverrideDatesPastDays and maxOverrideDates are the limits Genesys Cloud enforces for the override dates of a time off plan in a customer
-	// organization (timeoff.plan.past.override.days.max and timeoff.plan.override.days.max, both fixed). Organizations used for testing have
-	// tighter limits, which Genesys Cloud reports when the plan is saved.
-	maxOverrideDatesPastDays = 93
-	maxOverrideDates         = 550
-)
-
-// validateOverrideDatesWindow rejects override dates that Genesys Cloud would refuse when the plan is saved: too many of them, or a date that is
-// too far in the past. It is only used when the override dates change, because dates that were saved earlier and have since aged out are only
-// refused when the list is sent again, so a configuration that did not change must keep planning.
-func validateOverrideDatesWindow(dates []overrideDate, today time.Time) error {
-	if len(dates) > maxOverrideDates {
-		return fmt.Errorf("a time off plan can have at most %d override dates, but %d are configured", maxOverrideDates, len(dates))
-	}
-	earliest := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -maxOverrideDatesPastDays)
-	for _, entry := range dates {
-		parsed, err := time.Parse(dateLayout, entry.date)
-		if err != nil {
-			continue
-		}
-		if parsed.Before(earliest) {
-			return fmt.Errorf("override date %s is more than %d days in the past, which Genesys Cloud does not accept: remove the dates that have passed from override_dates", entry.date, maxOverrideDatesPastDays)
-		}
-	}
-	return nil
-}
-
 // validateOverrideDatesAreUnique rejects an override date that is listed twice, which Genesys Cloud rejects, even with different types
 func validateOverrideDatesAreUnique(dates []overrideDate) error {
 	seen := make(map[string]bool, len(dates))
@@ -597,11 +569,6 @@ func validateRules(_ context.Context, diff *schema.ResourceDiff, _ interface{}) 
 		dates := readOverrideDates(diff.Get("override_dates"))
 		if err := validateOverrideDatesAreUnique(dates); err != nil {
 			return err
-		}
-		if diff.Id() == "" || diff.HasChange("override_dates") {
-			if err := validateOverrideDatesWindow(dates, time.Now()); err != nil {
-				return err
-			}
 		}
 	}
 	restricted := setToStrings(diff.Get("restricted_activity_code_ids"), nil)

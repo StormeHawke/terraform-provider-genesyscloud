@@ -60,8 +60,6 @@ func TestUnitValidateRanges(t *testing.T) {
 		"both lists":             {granularityDaily, []valueRange{{start: day("2026-03-01"), perDay: []int{1}, perFifteen: []int{1}}}, "only one can be set"},
 		"daily on 15":            {granularityFifteenMinutes, []valueRange{dailyRange("2026-03-01", 1)}, "needs the Daily granularity"},
 		"15 on daily":            {granularityDaily, []valueRange{{start: day("2026-03-01"), perFifteen: []int{1}}}, "needs the FifteenMinutes granularity"},
-		"too many days":          {granularityDaily, []valueRange{{start: day("2026-03-01"), perDay: make([]int, 367)}}, "at most 366"},
-		"too many 15 mins":       {granularityFifteenMinutes, []valueRange{{start: day("2026-03-01"), perFifteen: make([]int, 367*maxSlotsPerDay)}}, "at most 366"},
 		"15 mins that could fit": {granularityFifteenMinutes, []valueRange{{start: day("2026-03-01"), perFifteen: make([]int, 366*96)}}, ""},
 	}
 	for name, test := range cases {

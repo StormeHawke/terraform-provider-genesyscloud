@@ -24,7 +24,6 @@ const (
 	minSlotsPerDay = 92
 	maxSlotsPerDay = 100
 
-	maxDaysPerRange   = 366 // the most days one range covers
 	maxDaysPerRequest = 366 // the most days all the ranges of one write or one query cover together
 	maxRangesPerQuery = 30  // the most date ranges one query reads
 )
@@ -121,8 +120,8 @@ func readValueRanges(value interface{}) []valueRange {
 	return ranges
 }
 
-// validateRanges checks the value ranges against the granularity of the limit. A range sets the values for the granularity of the limit,
-// covers at most 366 days, and must not overlap another range.
+// validateRanges checks the value ranges against the granularity of the limit. A range sets the values for the granularity of the limit
+// and must not overlap another range.
 func validateRanges(granularity string, ranges []valueRange) error {
 	for _, r := range ranges {
 		date := r.start.Format(dateLayout)
@@ -135,8 +134,6 @@ func validateRanges(granularity string, ranges []valueRange) error {
 			return fmt.Errorf("the value range starting on %s sets %s, which needs the Daily granularity, but the granularity is %s", date, dailyKey, granularity)
 		case len(r.perFifteen) > 0 && granularity != granularityFifteenMinutes:
 			return fmt.Errorf("the value range starting on %s sets %s, which needs the FifteenMinutes granularity, but the granularity is %s", date, fifteenMinuteKey, granularity)
-		case r.days(maxSlotsPerDay) > maxDaysPerRange:
-			return fmt.Errorf("the value range starting on %s covers %d days, but a range covers at most %d days", date, r.days(maxSlotsPerDay), maxDaysPerRange)
 		}
 	}
 
