@@ -280,23 +280,33 @@ func buildCreateRequest(config cty.Value, get func(string) interface{}) *platfor
 
 	configured := readAssociations(get)
 	if configured.businessUnit != nil {
-		association := &platformclientv2.Createtimeoffplanbusinessunitassociation{}
-		if len(configured.businessUnit.managementUnitIds) > 0 {
-			association.ManagementUnitIds = &configured.businessUnit.managementUnitIds
-		}
-		if len(configured.businessUnit.staffingGroupIds) > 0 {
-			association.StaffingGroupIds = &configured.businessUnit.staffingGroupIds
-		}
-		request.BusinessUnitAssociation = association
+		request.BusinessUnitAssociation = buildCreateBusinessUnitAssociation(configured.businessUnit)
 	}
 	if configured.managementUnit != nil {
-		association := &platformclientv2.Createtimeoffplanmanagementunitassociation{ManagementUnitId: &configured.managementUnit.managementUnitId}
-		if len(configured.managementUnit.staffingGroupIds) > 0 {
-			association.StaffingGroupIds = &configured.managementUnit.staffingGroupIds
-		}
-		request.ManagementUnitAssociation = association
+		request.ManagementUnitAssociation = buildCreateManagementUnitAssociation(configured.managementUnit)
 	}
 	return request
+}
+
+// buildCreateBusinessUnitAssociation builds the association of a time off plan with management units or staffing groups of the business unit
+func buildCreateBusinessUnitAssociation(configured *businessUnitAssociation) *platformclientv2.Createtimeoffplanbusinessunitassociation {
+	association := &platformclientv2.Createtimeoffplanbusinessunitassociation{}
+	if len(configured.managementUnitIds) > 0 {
+		association.ManagementUnitIds = &configured.managementUnitIds
+	}
+	if len(configured.staffingGroupIds) > 0 {
+		association.StaffingGroupIds = &configured.staffingGroupIds
+	}
+	return association
+}
+
+// buildCreateManagementUnitAssociation builds the association of a time off plan with one management unit and optionally its staffing groups
+func buildCreateManagementUnitAssociation(configured *managementUnitAssociation) *platformclientv2.Createtimeoffplanmanagementunitassociation {
+	association := &platformclientv2.Createtimeoffplanmanagementunitassociation{ManagementUnitId: &configured.managementUnitId}
+	if len(configured.staffingGroupIds) > 0 {
+		association.StaffingGroupIds = &configured.staffingGroupIds
+	}
+	return association
 }
 
 func currentIds(references []string) []string {
@@ -381,36 +391,10 @@ func buildUpdateRequest(config cty.Value, get func(string) interface{}, current 
 
 	configured := readAssociations(get)
 	if configured.businessUnit != nil {
-		var currentManagementUnits, currentStaffingGroups []string
-		if current.BusinessUnitAssociation != nil {
-			currentManagementUnits = managementUnitReferenceIds(current.BusinessUnitAssociation.ManagementUnits)
-			currentStaffingGroups = staffingGroupReferenceIds(current.BusinessUnitAssociation.StaffingGroups)
-		}
-		// Only the wrapper of the kind that is configured is sent: Genesys Cloud uses the staffing groups wrapper whenever it is there,
-		// even when it is empty, and ignores the management units wrapper next to it. Sending one replaces the other kind.
-		association := &platformclientv2.Updatetimeoffplanbusinessunitassociation{}
-		switch {
-		case len(configured.businessUnit.staffingGroupIds) > 0:
-			if !sameStrings(configured.businessUnit.staffingGroupIds, currentStaffingGroups) || len(currentManagementUnits) > 0 {
-				association.StaffingGroupIds = stringWrapper(configured.businessUnit.staffingGroupIds)
-			}
-		case len(configured.businessUnit.managementUnitIds) > 0:
-			if !sameStrings(configured.businessUnit.managementUnitIds, currentManagementUnits) || len(currentStaffingGroups) > 0 {
-				association.ManagementUnitIds = stringWrapper(configured.businessUnit.managementUnitIds)
-			}
-		}
-		if association.ManagementUnitIds != nil || association.StaffingGroupIds != nil {
-			request.BusinessUnitAssociation = association
-		}
+		request.BusinessUnitAssociation = buildUpdateBusinessUnitAssociation(configured.businessUnit, current.BusinessUnitAssociation)
 	}
 	if configured.managementUnit != nil {
-		var currentStaffingGroups []string
-		if current.ManagementUnitAssociation != nil {
-			currentStaffingGroups = staffingGroupReferenceIds(current.ManagementUnitAssociation.StaffingGroups)
-		}
-		if !sameStrings(configured.managementUnit.staffingGroupIds, currentStaffingGroups) {
-			request.ManagementUnitAssociation = &platformclientv2.Updatetimeoffplanmanagementunitassociation{StaffingGroupIds: stringWrapper(configured.managementUnit.staffingGroupIds)}
-		}
+		request.ManagementUnitAssociation = buildUpdateManagementUnitAssociation(configured.managementUnit, current.ManagementUnitAssociation)
 	}
 
 	// The version of the time off plan is sent for optimistic locking
@@ -418,6 +402,44 @@ func buildUpdateRequest(config cty.Value, get func(string) interface{}, current 
 		request.Metadata = &platformclientv2.Wfmversionedentitymetadata{Version: current.Metadata.Version}
 	}
 	return request
+}
+
+// buildUpdateBusinessUnitAssociation returns what has to be sent to bring the business unit association to the configured one, or nil when it already is
+func buildUpdateBusinessUnitAssociation(configured *businessUnitAssociation, current *platformclientv2.Timeoffplanbusinessunitassociation) *platformclientv2.Updatetimeoffplanbusinessunitassociation {
+	var currentManagementUnits, currentStaffingGroups []string
+	if current != nil {
+		currentManagementUnits = managementUnitReferenceIds(current.ManagementUnits)
+		currentStaffingGroups = staffingGroupReferenceIds(current.StaffingGroups)
+	}
+	// Only the wrapper of the kind that is configured is sent: Genesys Cloud uses the staffing groups wrapper whenever it is there,
+	// even when it is empty, and ignores the management units wrapper next to it. Sending one replaces the other kind.
+	association := &platformclientv2.Updatetimeoffplanbusinessunitassociation{}
+	switch {
+	case len(configured.staffingGroupIds) > 0:
+		if !sameStrings(configured.staffingGroupIds, currentStaffingGroups) || len(currentManagementUnits) > 0 {
+			association.StaffingGroupIds = stringWrapper(configured.staffingGroupIds)
+		}
+	case len(configured.managementUnitIds) > 0:
+		if !sameStrings(configured.managementUnitIds, currentManagementUnits) || len(currentStaffingGroups) > 0 {
+			association.ManagementUnitIds = stringWrapper(configured.managementUnitIds)
+		}
+	}
+	if association.ManagementUnitIds == nil && association.StaffingGroupIds == nil {
+		return nil
+	}
+	return association
+}
+
+// buildUpdateManagementUnitAssociation returns what has to be sent to bring the management unit association to the configured one, or nil when it already is
+func buildUpdateManagementUnitAssociation(configured *managementUnitAssociation, current *platformclientv2.Timeoffplanmanagementunitassociation) *platformclientv2.Updatetimeoffplanmanagementunitassociation {
+	var currentStaffingGroups []string
+	if current != nil {
+		currentStaffingGroups = staffingGroupReferenceIds(current.StaffingGroups)
+	}
+	if sameStrings(configured.staffingGroupIds, currentStaffingGroups) {
+		return nil
+	}
+	return &platformclientv2.Updatetimeoffplanmanagementunitassociation{StaffingGroupIds: stringWrapper(configured.staffingGroupIds)}
 }
 
 func derefStrings(values *[]string) []string {
