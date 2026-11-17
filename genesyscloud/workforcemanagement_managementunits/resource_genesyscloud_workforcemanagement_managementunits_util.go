@@ -9,6 +9,12 @@ import (
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
+)
+
+const (
+	businessUnitResourceType = "genesyscloud_workforcemanagement_businessunits"
+	activityCodeResourceType = "genesyscloud_workforcemanagement_businessunits_activitycode"
 )
 
 const dateLayout = "2006-01-02"
@@ -243,7 +249,7 @@ func buildShiftTrading(settings cty.Value) *platformclientv2.Shifttradesettings 
 			activityRules = append(activityRules, platformclientv2.Shifttradeactivityrule{
 				ActivityCategory:          stringOf(rule, "activity_category"),
 				Action:                    stringOf(rule, "action"),
-				ActivityCodeIdReplacement: nonEmpty(stringOf(rule, "activity_code_id_replacement")),
+				ActivityCodeIdReplacement: activityCodeIdReplacement(rule),
 			})
 		}
 		shiftTrading.ActivityCategoryRules = &activityRules
@@ -254,12 +260,23 @@ func buildShiftTrading(settings cty.Value) *platformclientv2.Shifttradesettings 
 			externalRules = append(externalRules, platformclientv2.Shifttradeexternalactivityrule{
 				ExternalActivityType:      stringOf(rule, "external_activity_type"),
 				Action:                    stringOf(rule, "action"),
-				ActivityCodeIdReplacement: nonEmpty(stringOf(rule, "activity_code_id_replacement")),
+				ActivityCodeIdReplacement: activityCodeIdReplacement(rule),
 			})
 		}
 		shiftTrading.ExternalActivityRules = &externalRules
 	}
 	return shiftTrading
+}
+
+// activityCodeIdReplacement reads the id of the activity code that replaces activities in a shift trade rule, without the business unit
+// that comes in front of it when it is the id of an activity code resource, because a management unit only uses activity codes of its business unit
+func activityCodeIdReplacement(rule cty.Value) *string {
+	replacement := nonEmpty(stringOf(rule, "activity_code_id_replacement"))
+	if replacement == nil {
+		return nil
+	}
+	activityCodeId := ModifyActivityCodeIdStateValue(*replacement)
+	return &activityCodeId
 }
 
 func nonEmpty(value *string) *string {
@@ -470,4 +487,90 @@ func GenerateManagementUnitResource(resourceLabel string, name string, businessU
 	%s
 }
 `, ResourceType, resourceLabel, name, businessUnitId, strings.Join(attrs, "\n"))
+}
+
+// resolveActivityCodeReferences turns the activity code ids of a management unit into references to the exported activity code resources.
+// The management unit api only knows an activity code by its id, because it belongs to the business unit of the management unit, but the
+// exporter keys activity code resources by <businessUnitId>/<activityCodeId>, because the same id can appear in different business units.
+// So the key is built from the business unit of the management unit and the activity code id. An id that matches no exported resource stays as it is.
+func resolveActivityCodeReferences(configMap map[string]interface{}, exporters map[string]*resourceExporter.ResourceExporter, _ string) error {
+	activityCodes := exporters[activityCodeResourceType]
+	if activityCodes == nil || activityCodes.SanitizedResourceMap == nil {
+		return nil
+	}
+	businessUnitId := exportedBusinessUnitId(configMap, exporters)
+	if businessUnitId == "" {
+		return nil
+	}
+
+	reference := func(activityCodeId string) string {
+		if meta := activityCodes.SanitizedResourceMap[businessUnitId+"/"+activityCodeId]; meta != nil && meta.BlockLabel != "" {
+			return fmt.Sprintf("${%s.%s.id}", activityCodeResourceType, meta.BlockLabel)
+		}
+		return activityCodeId
+	}
+
+	for _, settings := range mapsOf(configMap["settings"]) {
+		for _, adherence := range mapsOf(settings["adherence"]) {
+			if ids, ok := adherence["ignored_activity_code_ids"].([]interface{}); ok {
+				for i, id := range ids {
+					if activityCodeId, ok := id.(string); ok {
+						ids[i] = reference(activityCodeId)
+					}
+				}
+			}
+		}
+		for _, shiftTrading := range mapsOf(settings["shift_trading"]) {
+			for _, key := range []string{"activity_category_rules", "external_activity_rules"} {
+				for _, rule := range mapsOf(shiftTrading[key]) {
+					if activityCodeId, ok := rule["activity_code_id_replacement"].(string); ok {
+						rule["activity_code_id_replacement"] = reference(activityCodeId)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// exportedBusinessUnitId returns the id of the business unit of the exported management unit. The exporter may already have replaced it with
+// a reference to the exported business unit, in which case the id is found through the label of that reference.
+func exportedBusinessUnitId(configMap map[string]interface{}, exporters map[string]*resourceExporter.ResourceExporter) string {
+	value, ok := configMap["business_unit_id"].(string)
+	if !ok || value == "" {
+		return ""
+	}
+	prefix := "${" + businessUnitResourceType + "."
+	if !strings.HasPrefix(value, prefix) || !strings.HasSuffix(value, ".id}") {
+		if strings.HasPrefix(value, "${") {
+			return ""
+		}
+		return value
+	}
+	label := strings.TrimSuffix(strings.TrimPrefix(value, prefix), ".id}")
+	businessUnits := exporters[businessUnitResourceType]
+	if businessUnits == nil {
+		return ""
+	}
+	for id, meta := range businessUnits.SanitizedResourceMap {
+		if meta != nil && meta.BlockLabel == label {
+			return id
+		}
+	}
+	return ""
+}
+
+// mapsOf returns the maps in an exported list of blocks
+func mapsOf(value interface{}) []map[string]interface{} {
+	list, ok := value.([]interface{})
+	if !ok {
+		return nil
+	}
+	maps := make([]map[string]interface{}, 0, len(list))
+	for _, item := range list {
+		if entry, ok := item.(map[string]interface{}); ok {
+			maps = append(maps, entry)
+		}
+	}
+	return maps
 }

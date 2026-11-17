@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 )
 
 func TestUnitModifyActivityCodeIdStateValue(t *testing.T) {
@@ -139,5 +140,106 @@ func TestUnitFlattenTimeOffFormatsDate(t *testing.T) {
 	})
 	if got := flattened[0].(map[string]interface{})["submission_latest_date"]; got != "2026-12-31" {
 		t.Errorf("expected 2026-12-31, got %v", got)
+	}
+}
+
+func TestUnitActivityCodeReplacementDropsTheBusinessUnit(t *testing.T) {
+	block := cty.ObjectVal(map[string]cty.Value{
+		"enabled": cty.True,
+		"activity_category_rules": cty.ListVal([]cty.Value{cty.ObjectVal(map[string]cty.Value{
+			"activity_category":            cty.StringVal("Break"),
+			"action":                       cty.StringVal("Replace"),
+			"activity_code_id_replacement": cty.StringVal("bu-1/break-code"),
+		})}),
+		"external_activity_rules": cty.ListVal([]cty.Value{cty.ObjectVal(map[string]cty.Value{
+			"external_activity_type":       cty.StringVal("Coaching"),
+			"action":                       cty.StringVal("KeepWithAgent"),
+			"activity_code_id_replacement": cty.StringVal("bu-1/meeting-code"),
+		})}),
+	})
+
+	shiftTrading := buildShiftTrading(settingsWith("shift_trading", block))
+	if got := *(*shiftTrading.ActivityCategoryRules)[0].ActivityCodeIdReplacement; got != "break-code" {
+		t.Errorf("expected the business unit to be dropped from the activity category rule, got %s", got)
+	}
+	if got := *(*shiftTrading.ExternalActivityRules)[0].ActivityCodeIdReplacement; got != "meeting-code" {
+		t.Errorf("expected the business unit to be dropped from the external activity rule, got %s", got)
+	}
+}
+
+func exporterWith(labels map[string]string) *resourceExporter.ResourceExporter {
+	exported := &resourceExporter.ResourceExporter{SanitizedResourceMap: resourceExporter.ResourceIDMetaMap{}}
+	for id, label := range labels {
+		exported.SanitizedResourceMap[id] = &resourceExporter.ResourceMeta{BlockLabel: label}
+	}
+	return exported
+}
+
+func exportedManagementUnit(businessUnitId string) map[string]interface{} {
+	return map[string]interface{}{
+		"business_unit_id": businessUnitId,
+		"settings": []interface{}{map[string]interface{}{
+			"adherence": []interface{}{map[string]interface{}{"ignored_activity_code_ids": []interface{}{"break-code", "other-code"}}},
+			"shift_trading": []interface{}{map[string]interface{}{
+				"activity_category_rules": []interface{}{map[string]interface{}{"activity_code_id_replacement": "break-code"}},
+				"external_activity_rules": []interface{}{map[string]interface{}{"activity_code_id_replacement": "break-code"}},
+			}},
+		}},
+	}
+}
+
+func TestUnitResolveActivityCodeReferencesUsesTheBusinessUnit(t *testing.T) {
+	// The default Break code has the same id in both business units, so only the one of the management unit's business unit may be used
+	exporters := map[string]*resourceExporter.ResourceExporter{
+		activityCodeResourceType: exporterWith(map[string]string{"bu-1/break-code": "first_break", "bu-2/break-code": "second_break"}),
+	}
+
+	configMap := exportedManagementUnit("bu-2")
+	if err := resolveActivityCodeReferences(configMap, exporters, "management_unit"); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	settings := configMap["settings"].([]interface{})[0].(map[string]interface{})
+	ids := settings["adherence"].([]interface{})[0].(map[string]interface{})["ignored_activity_code_ids"].([]interface{})
+	if ids[0] != "${"+activityCodeResourceType+".second_break.id}" {
+		t.Errorf("expected the code of business unit 2, got %v", ids[0])
+	}
+	if ids[1] != "other-code" {
+		t.Errorf("an id that was not exported must stay as it is, got %v", ids[1])
+	}
+	shiftTrading := settings["shift_trading"].([]interface{})[0].(map[string]interface{})
+	for _, key := range []string{"activity_category_rules", "external_activity_rules"} {
+		rule := shiftTrading[key].([]interface{})[0].(map[string]interface{})
+		if rule["activity_code_id_replacement"] != "${"+activityCodeResourceType+".second_break.id}" {
+			t.Errorf("expected %s to refer to the activity code, got %v", key, rule["activity_code_id_replacement"])
+		}
+	}
+}
+
+func TestUnitResolveActivityCodeReferencesWhenTheBusinessUnitIsAReference(t *testing.T) {
+	exporters := map[string]*resourceExporter.ResourceExporter{
+		activityCodeResourceType: exporterWith(map[string]string{"bu-1/break-code": "first_break", "bu-2/break-code": "second_break"}),
+		businessUnitResourceType: exporterWith(map[string]string{"bu-1": "unit_one", "bu-2": "unit_two"}),
+	}
+
+	configMap := exportedManagementUnit("${" + businessUnitResourceType + ".unit_one.id}")
+	if err := resolveActivityCodeReferences(configMap, exporters, "management_unit"); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	settings := configMap["settings"].([]interface{})[0].(map[string]interface{})
+	ids := settings["adherence"].([]interface{})[0].(map[string]interface{})["ignored_activity_code_ids"].([]interface{})
+	if ids[0] != "${"+activityCodeResourceType+".first_break.id}" {
+		t.Errorf("expected the code of business unit 1, got %v", ids[0])
+	}
+}
+
+func TestUnitResolveActivityCodeReferencesLeavesIdsWhenNothingCanBeMatched(t *testing.T) {
+	configMap := exportedManagementUnit("bu-1")
+	if err := resolveActivityCodeReferences(configMap, map[string]*resourceExporter.ResourceExporter{}, "management_unit"); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+	settings := configMap["settings"].([]interface{})[0].(map[string]interface{})
+	ids := settings["adherence"].([]interface{})[0].(map[string]interface{})["ignored_activity_code_ids"].([]interface{})
+	if ids[0] != "break-code" {
+		t.Errorf("without an exported activity code resource the id must stay as it is, got %v", ids[0])
 	}
 }
