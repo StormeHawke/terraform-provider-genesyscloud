@@ -131,11 +131,6 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 // moveTimeout is how long to wait for the asynchronous move of a management unit to another business unit
 const moveTimeout = 5 * time.Minute
 
-const (
-	moveInitialWait  = 5 * time.Second
-	movePollInterval = 10 * time.Second
-)
-
 // moveManagementUnitToBusinessUnit moves the management unit to another business unit. The move is processed asynchronously,
 // so it waits until the management unit reports the new business unit.
 func moveManagementUnitToBusinessUnit(ctx context.Context, proxy *managementUnitProxy, managementUnitId string, businessUnitId string) diag.Diagnostics {
@@ -153,28 +148,17 @@ func moveManagementUnitToBusinessUnit(ctx context.Context, proxy *managementUnit
 // so a move that the service rejects after accepting the request (for example a duplicate name in the target business unit
 // or a limit being reached) can only be seen as the business unit never changing.
 func waitForManagementUnitMove(ctx context.Context, proxy *managementUnitProxy, managementUnitId string, businessUnitId string) diag.Diagnostics {
-	deadline := time.Now().Add(moveTimeout)
-	wait := moveInitialWait
-	for {
-		select {
-		case <-ctx.Done():
-			return diag.FromErr(ctx.Err())
-		case <-time.After(wait):
-		}
-
+	return util.PollUntilDone(ctx, moveTimeout, func() (string, diag.Diagnostics) {
 		managementUnit, resp, err := proxy.getManagementUnitById(ctx, managementUnitId)
 		if err != nil {
-			return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s while waiting for the move: %s", managementUnitId, err), resp)
+			return "", util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read management unit %s while waiting for the move: %s", managementUnitId, err), resp)
 		}
 		if *managementUnit.BusinessUnit.Id == businessUnitId {
 			log.Printf("Moved management unit %s to business unit %s", managementUnitId, businessUnitId)
-			return nil
+			return "", nil
 		}
-		if time.Now().After(deadline) {
-			return diag.Errorf("management unit %s was not moved to business unit %s within %s. The service may have rejected the move, for example because a management unit with the same name exists in the target business unit or a limit was reached", managementUnitId, businessUnitId, moveTimeout)
-		}
-		wait = movePollInterval
-	}
+		return fmt.Sprintf("management unit %s was not moved to business unit %s. The service may have rejected the move, for example because a management unit with the same name exists in the target business unit or a limit was reached", managementUnitId, businessUnitId), nil
+	})
 }
 
 // deleteManagementUnit is used by the workforcemanagement_managementunits resource to delete a management unit from Genesys Cloud
