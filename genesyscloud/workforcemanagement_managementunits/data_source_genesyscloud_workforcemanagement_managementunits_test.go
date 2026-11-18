@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 func TestAccDataSourceManagementUnit(t *testing.T) {
@@ -24,9 +25,9 @@ func TestAccDataSourceManagementUnit(t *testing.T) {
 		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
 		Steps: []resource.TestStep{
 			{
-				Config: generateTestBusinessUnit(buResourceLabel, buName) +
-					GenerateManagementUnitResource(resourceLabel, name, businessUnitIdRef(buResourceLabel)) +
-					generateManagementUnitDataSource(dataSourceLabel, businessUnitIdRef(buResourceLabel), name, ResourceType+"."+resourceLabel),
+				Config: wfm.GenerateTestBusinessUnit(buResourceLabel, buName) +
+					GenerateManagementUnitResource(resourceLabel, name, wfm.BusinessUnitIdRef(buResourceLabel)) +
+					generateManagementUnitDataSource(dataSourceLabel, wfm.BusinessUnitIdRef(buResourceLabel), name, ResourceType+"."+resourceLabel),
 				Check: resource.TestCheckResourceAttrPair(
 					"data."+ResourceType+"."+dataSourceLabel, "id",
 					ResourceType+"."+resourceLabel, "id",

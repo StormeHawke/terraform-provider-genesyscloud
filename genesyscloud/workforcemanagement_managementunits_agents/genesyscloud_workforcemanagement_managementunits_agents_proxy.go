@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
-	managementunits "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -122,5 +122,5 @@ func updateAgentsFn(ctx context.Context, p *managementUnitAgentsProxy, managemen
 
 // getAllManagementUnitsFn is an implementation of the function to list Genesys Cloud management units
 func getAllManagementUnitsFn(ctx context.Context, p *managementUnitAgentsProxy) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error) {
-	return managementunits.GetAllManagementUnits(p.workforceManagementApi)
+	return wfm.GetAllManagementUnits(p.workforceManagementApi)
 }

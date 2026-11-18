@@ -10,6 +10,7 @@ import (
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 	businessUnits "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits"
 )
 
@@ -39,9 +40,9 @@ func TestAccResourceServiceGoalTemplate(t *testing.T) {
 		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
 		Steps: []resource.TestStep{
 			{
-				Config: generateTestBusinessUnit(buResourceLabel, buName) + GenerateServiceGoalTemplateResource(
+				Config: wfm.GenerateTestBusinessUnit(buResourceLabel, buName) + GenerateServiceGoalTemplateResource(
 					resourceLabel,
-					businessUnitIdRef(buResourceLabel),
+					wfm.BusinessUnitIdRef(buResourceLabel),
 					name1,
 					`service_level {
 						include = true
@@ -67,9 +68,9 @@ func TestAccResourceServiceGoalTemplate(t *testing.T) {
 				),
 			},
 			{
-				Config: generateTestBusinessUnit(buResourceLabel, buName) + GenerateServiceGoalTemplateResource(
+				Config: wfm.GenerateTestBusinessUnit(buResourceLabel, buName) + GenerateServiceGoalTemplateResource(
 					resourceLabel,
-					businessUnitIdRef(buResourceLabel),
+					wfm.BusinessUnitIdRef(buResourceLabel),
 					name2,
 					`service_level {
 						include = true
@@ -119,18 +120,6 @@ func TestAccResourceServiceGoalTemplate(t *testing.T) {
 		},
 		CheckDestroy: testVerifyServiceGoalTemplateDestroyed,
 	})
-}
-
-func generateTestBusinessUnit(resourceLabel string, name string) string {
-	return businessUnits.GenerateWorkforcemanagementBusinessUnitResource(
-		resourceLabel,
-		name,
-		businessUnits.GenerateWorkforcemanagementBusinessUnitSettings("Sunday", "Etc/UTC", "", ""),
-	)
-}
-
-func businessUnitIdRef(buResourceLabel string) string {
-	return businessUnits.ResourceType + "." + buResourceLabel + ".id"
 }
 
 func testVerifyServiceGoalTemplateDestroyed(state *terraform.State) error {
