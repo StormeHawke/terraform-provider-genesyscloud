@@ -23,6 +23,36 @@ import (
 // The loop polls with exponential backoff until the budget is used. The SDK client retries 429 and 5xx responses itself, so they are not retried here.
 const UpdateRetryTimeout = 60 * time.Second
 
+// AsyncPollSchedule is how long to wait before each check of an asynchronous operation. The last wait repeats until the timeout.
+var AsyncPollSchedule = []time.Duration{5 * time.Second, 10 * time.Second, 15 * time.Second, 30 * time.Second, time.Minute}
+
+// PollUntilDone waits and then calls check again and again until it reports that nothing is pending, fails, or the timeout is used up.
+// It is for operations that Genesys Cloud completes asynchronously and only announces through a notification the provider cannot receive.
+// The waits are 5, 10, 15, 30 and 60 seconds, then every minute, so a long operation does not turn into a burst of requests.
+// check returns a description of what is still pending, or an empty string when the operation is done.
+func PollUntilDone(ctx context.Context, timeout time.Duration, check func() (pending string, diagErr diag.Diagnostics)) diag.Diagnostics {
+	deadline := time.Now().Add(timeout)
+	for attempt := 0; ; attempt++ {
+		wait := AsyncPollSchedule[min(attempt, len(AsyncPollSchedule)-1)]
+		select {
+		case <-ctx.Done():
+			return diag.FromErr(ctx.Err())
+		case <-time.After(wait):
+		}
+
+		pending, diagErr := check()
+		if diagErr != nil {
+			return diagErr
+		}
+		if pending == "" {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return diag.Errorf("timed out after %s: %s", timeout, pending)
+		}
+	}
+}
+
 func WithRetries(ctx context.Context, timeout time.Duration, method func() *retry.RetryError) diag.Diagnostics {
 	return withRetriesInternal(ctx, timeout, method, 0)
 }
