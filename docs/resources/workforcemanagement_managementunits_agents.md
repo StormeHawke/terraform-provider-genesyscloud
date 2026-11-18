@@ -62,7 +62,7 @@ resource "genesyscloud_workforcemanagement_managementunits_agents" "example_agen
 
 ### Required
 
-- `management_unit_id` (String) The id of the management unit whose agents are managed by this resource. Changing this attribute will cause the resource to be dropped and recreated.
+- `management_unit_id` (String) The id of the management unit whose agents are managed by this resource. Changing this attribute moves the agents to the new management unit.
 
 ### Optional
 
