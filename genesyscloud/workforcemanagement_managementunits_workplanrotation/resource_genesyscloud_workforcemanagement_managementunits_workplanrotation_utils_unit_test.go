@@ -11,10 +11,11 @@ import (
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 func date(value string) *time.Time {
-	parsed, _ := time.Parse(dateLayout, value)
+	parsed, _ := time.Parse(wfm.DateLayout, value)
 	return &parsed
 }
 
@@ -125,7 +126,7 @@ func TestUnitBuildAddRequestKeepsThePatternOrder(t *testing.T) {
 	if !reflect.DeepEqual(*request.Pattern.WorkPlanIds, []string{"plan-b", "plan-a", "plan-b"}) {
 		t.Errorf("the pattern order, repeats and bare work plan ids must be kept, got %v", *request.Pattern.WorkPlanIds)
 	}
-	if request.DateRange == nil || request.DateRange.EndBusinessUnitDate != nil || request.DateRange.StartBusinessUnitDate.Format(dateLayout) != "2026-01-05" {
+	if request.DateRange == nil || request.DateRange.EndBusinessUnitDate != nil || request.DateRange.StartBusinessUnitDate.Format(wfm.DateLayout) != "2026-01-05" {
 		t.Errorf("unexpected date range %+v", request.DateRange)
 	}
 	agents := *request.Agents

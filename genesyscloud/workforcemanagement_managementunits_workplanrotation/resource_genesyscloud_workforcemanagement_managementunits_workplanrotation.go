@@ -14,6 +14,7 @@ import (
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/constants"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -65,7 +66,7 @@ func createWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta in
 	d.SetId(managementUnitId + "/" + *created.Id)
 
 	// Genesys Cloud always creates a work plan rotation enabled, so a disabled one needs a second request
-	if enabled := boolOf(config, "enabled"); enabled != nil && !*enabled {
+	if enabled := wfm.BoolOf(config, "enabled"); enabled != nil && !*enabled {
 		if diagErr := disableWorkPlanRotation(ctx, proxy, managementUnitId, *created.Id); diagErr != nil {
 			return diagErr
 		}
@@ -118,11 +119,11 @@ func readWorkPlanRotation(ctx context.Context, d *schema.ResourceData, meta inte
 		_ = d.Set("management_unit_id", managementUnitId)
 		_ = d.Set("name", *rotation.Name)
 		_ = d.Set("enabled", *rotation.Enabled)
-		_ = d.Set("start_date", rotation.DateRange.StartBusinessUnitDate.Format(dateLayout))
+		_ = d.Set("start_date", rotation.DateRange.StartBusinessUnitDate.Format(wfm.DateLayout))
 		_ = d.Set("end_date", nil)
 		// Only the end of the date range is nullable
 		if rotation.DateRange.EndBusinessUnitDate != nil {
-			_ = d.Set("end_date", rotation.DateRange.EndBusinessUnitDate.Format(dateLayout))
+			_ = d.Set("end_date", rotation.DateRange.EndBusinessUnitDate.Format(wfm.DateLayout))
 		}
 		_ = d.Set("work_plan_ids", flattenWorkPlanIds(rotation.Pattern))
 		_ = d.Set("agents", flattenAgents(rotation.Agents))

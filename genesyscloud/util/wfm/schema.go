@@ -1,7 +1,9 @@
 package wfm
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -47,4 +49,12 @@ func ModifyActivityCodeIdStateValue(id interface{}) string {
 		return activityCodeId[i+1:]
 	}
 	return activityCodeId
+}
+
+// ValidateDate validates that a value is a date in the yyyy-MM-dd format
+func ValidateDate(value interface{}, key string) ([]string, []error) {
+	if _, err := time.Parse(DateLayout, value.(string)); err != nil {
+		return nil, []error{fmt.Errorf("%q must be a date in the format yyyy-MM-dd, got %q", key, value)}
+	}
+	return nil, nil
 }

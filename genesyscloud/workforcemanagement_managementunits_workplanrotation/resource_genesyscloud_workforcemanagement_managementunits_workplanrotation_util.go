@@ -3,7 +3,6 @@ package workforcemanagement_managementunits_workplanrotation
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sort"
 	"strings"
 	"time"
@@ -12,9 +11,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
-
-const dateLayout = "2006-01-02"
 
 // SplitWorkPlanRotationTerraformId splits the resource id, which is in the form
 // <managementUnitId>/<workPlanRotationId>, into the managementUnitId and workPlanRotationId
@@ -78,57 +76,6 @@ Requests only contain the values that are in the configuration, so they are buil
 
 var nullValue = cty.NullVal(cty.DynamicPseudoType)
 
-func isPresent(v cty.Value) bool {
-	return !v.IsNull() && v.IsKnown()
-}
-
-func attrOf(v cty.Value, name string) cty.Value {
-	if !isPresent(v) || !v.Type().IsObjectType() || !v.Type().HasAttribute(name) {
-		return nullValue
-	}
-	return v.GetAttr(name)
-}
-
-func stringOf(v cty.Value, name string) *string {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value := attr.AsString()
-	return &value
-}
-
-func boolOf(v cty.Value, name string) *bool {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value := attr.True()
-	return &value
-}
-
-func intOf(v cty.Value, name string) *int {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value, _ := new(big.Float).Set(attr.AsBigFloat()).Int64()
-	intValue := int(value)
-	return &intValue
-}
-
-func dateOf(v cty.Value, name string) *time.Time {
-	value := stringOf(v, name)
-	if value == nil || *value == "" {
-		return nil
-	}
-	parsed, err := time.Parse(dateLayout, *value)
-	if err != nil {
-		return nil
-	}
-	return &parsed
-}
-
 // rotationAgent is an agent as it is configured, or as it is returned by Genesys Cloud
 type rotationAgent struct {
 	userId   string
@@ -138,30 +85,30 @@ type rotationAgent struct {
 }
 
 func readAgents(config cty.Value) *[]rotationAgent {
-	attr := attrOf(config, "agents")
-	if !isPresent(attr) {
+	attr := wfm.AttrOf(config, "agents")
+	if !wfm.IsPresent(attr) {
 		return nil
 	}
 	agents := make([]rotationAgent, 0, attr.LengthInt())
 	for _, element := range attr.AsValueSlice() {
-		userId := stringOf(element, "user_id")
+		userId := wfm.StringOf(element, "user_id")
 		if userId == nil {
 			continue
 		}
-		agents = append(agents, rotationAgent{userId: *userId, start: dateOf(element, "start_date"), end: dateOf(element, "end_date"), position: intOf(element, "position")})
+		agents = append(agents, rotationAgent{userId: *userId, start: wfm.DateOf(element, "start_date"), end: wfm.DateOf(element, "end_date"), position: wfm.IntOf(element, "position")})
 	}
 	sort.Slice(agents, func(i, j int) bool { return agents[i].userId < agents[j].userId })
 	return &agents
 }
 
 func readWorkPlanIds(config cty.Value) *[]string {
-	attr := attrOf(config, "work_plan_ids")
-	if !isPresent(attr) {
+	attr := wfm.AttrOf(config, "work_plan_ids")
+	if !wfm.IsPresent(attr) {
 		return nil
 	}
 	ids := make([]string, 0, attr.LengthInt())
 	for _, element := range attr.AsValueSlice() {
-		if isPresent(element) {
+		if wfm.IsPresent(element) {
 			ids = append(ids, ModifyWorkPlanIdStateValue(element.AsString()))
 		}
 	}
@@ -171,11 +118,11 @@ func readWorkPlanIds(config cty.Value) *[]string {
 // buildDateRange returns the configured date range. It always has both ends, because Genesys Cloud replaces the whole range
 // and a missing end means open ended.
 func buildDateRange(config cty.Value) *platformclientv2.Daterangewithoptionalend {
-	start := dateOf(config, "start_date")
+	start := wfm.DateOf(config, "start_date")
 	if start == nil {
 		return nil
 	}
-	return &platformclientv2.Daterangewithoptionalend{StartBusinessUnitDate: start, EndBusinessUnitDate: dateOf(config, "end_date")}
+	return &platformclientv2.Daterangewithoptionalend{StartBusinessUnitDate: start, EndBusinessUnitDate: wfm.DateOf(config, "end_date")}
 }
 
 func agentDateRange(agent rotationAgent) *platformclientv2.Daterangewithoptionalend {
@@ -184,7 +131,7 @@ func agentDateRange(agent rotationAgent) *platformclientv2.Daterangewithoptional
 
 func buildAddRequest(config cty.Value) *platformclientv2.Addworkplanrotationrequest {
 	request := &platformclientv2.Addworkplanrotationrequest{
-		Name:      stringOf(config, "name"),
+		Name:      wfm.StringOf(config, "name"),
 		DateRange: buildDateRange(config),
 	}
 	if workPlanIds := readWorkPlanIds(config); workPlanIds != nil {
@@ -204,7 +151,7 @@ func sameDate(a *time.Time, b *time.Time) bool {
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	return a.Format(dateLayout) == b.Format(dateLayout)
+	return a.Format(wfm.DateLayout) == b.Format(wfm.DateLayout)
 }
 
 // buildAgentUpdates returns the agents to add, the agents whose date range or position changed, and the agents to remove
@@ -243,8 +190,8 @@ func buildAgentUpdates(current []platformclientv2.Workplanrotationagentresponse,
 // Attributes that are not configured are left out, so the work plan rotation keeps their current values.
 func buildUpdateRequest(config cty.Value, current *platformclientv2.Workplanrotationresponse) *platformclientv2.Updateworkplanrotationrequest {
 	request := &platformclientv2.Updateworkplanrotationrequest{
-		Name:      stringOf(config, "name"),
-		Enabled:   boolOf(config, "enabled"),
+		Name:      wfm.StringOf(config, "name"),
+		Enabled:   wfm.BoolOf(config, "enabled"),
 		DateRange: buildDateRange(config),
 	}
 	if workPlanIds := readWorkPlanIds(config); workPlanIds != nil {
@@ -267,12 +214,12 @@ func flattenAgents(agents *[]platformclientv2.Workplanrotationagentresponse) *sc
 	for _, agent := range *agents {
 		entry := map[string]interface{}{
 			"user_id":    *agent.User.Id,
-			"start_date": agent.DateRange.StartBusinessUnitDate.Format(dateLayout),
+			"start_date": agent.DateRange.StartBusinessUnitDate.Format(wfm.DateLayout),
 			"position":   *agent.Position,
 		}
 		// Only the end of the date range is nullable
 		if agent.DateRange.EndBusinessUnitDate != nil {
-			entry["end_date"] = agent.DateRange.EndBusinessUnitDate.Format(dateLayout)
+			entry["end_date"] = agent.DateRange.EndBusinessUnitDate.Format(wfm.DateLayout)
 		}
 		flattened = append(flattened, entry)
 	}
