@@ -2,14 +2,13 @@ package workforcemanagement_managementunits
 
 import (
 	"fmt"
-	"math/big"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 const (
@@ -17,155 +16,53 @@ const (
 	activityCodeResourceType = "genesyscloud_workforcemanagement_businessunits_activitycode"
 )
 
-const dateLayout = "2006-01-02"
-
-// ModifyActivityCodeIdStateValue strips the business unit from an activity code id before it is saved in state.
-// The activity code resource id is <businessUnitId>/<activityCodeId>, but the management unit api only returns the activity code id,
-// so saving the composite value would cause a non-empty plan.
-func ModifyActivityCodeIdStateValue(id interface{}) string {
-	activityCodeId := id.(string)
-	if i := strings.LastIndex(activityCodeId, "/"); i >= 0 {
-		return activityCodeId[i+1:]
-	}
-	return activityCodeId
-}
-
 /*
 Settings requests only include the fields that are present in the configuration. Many settings fields are optional and
 computed, and a field the user did not configure must not be sent as a zero value, so presence is read from the raw
 configuration instead of from the merged resource data.
 */
 
-var nullValue = cty.NullVal(cty.DynamicPseudoType)
-
-func isPresent(v cty.Value) bool {
-	return !v.IsNull() && v.IsKnown()
-}
-
-func attrOf(v cty.Value, name string) cty.Value {
-	if !isPresent(v) || !v.Type().IsObjectType() || !v.Type().HasAttribute(name) {
-		return nullValue
-	}
-	return v.GetAttr(name)
-}
-
-// blockOf returns the single element of a list block with a maximum of one item
-func blockOf(v cty.Value, name string) cty.Value {
-	list := attrOf(v, name)
-	if !isPresent(list) || list.LengthInt() == 0 {
-		return nullValue
-	}
-	return list.AsValueSlice()[0]
-}
-
-func stringOf(v cty.Value, name string) *string {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value := attr.AsString()
-	return &value
-}
-
-func intOf(v cty.Value, name string) *int {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value, _ := attr.AsBigFloat().Int64()
-	intValue := int(value)
-	return &intValue
-}
-
-func floatOf(v cty.Value, name string) *float64 {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value, _ := new(big.Float).Set(attr.AsBigFloat()).Float64()
-	return &value
-}
-
-func boolOf(v cty.Value, name string) *bool {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value := attr.True()
-	return &value
-}
-
-func stringSliceOf(v cty.Value, name string, transform func(string) string) *[]string {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	values := make([]string, 0, attr.LengthInt())
-	for _, element := range attr.AsValueSlice() {
-		if isPresent(element) {
-			value := element.AsString()
-			if transform != nil {
-				value = transform(value)
-			}
-			values = append(values, value)
-		}
-	}
-	return &values
-}
-
-func dateOf(v cty.Value, name string) *time.Time {
-	value := stringOf(v, name)
-	if value == nil {
-		return nil
-	}
-	parsed, err := time.Parse(dateLayout, *value)
-	if err != nil {
-		return nil
-	}
-	return &parsed
-}
-
 func buildAdherence(settings cty.Value) *platformclientv2.Adherencesettings {
-	block := blockOf(settings, "adherence")
-	if !isPresent(block) {
+	block := wfm.BlockOf(settings, "adherence")
+	if !wfm.IsPresent(block) {
 		return nil
 	}
 	adherence := &platformclientv2.Adherencesettings{
-		SevereAlertThresholdMinutes:        intOf(block, "severe_alert_threshold_minutes"),
-		AdherenceTargetPercent:             intOf(block, "adherence_target_percent"),
-		AdherenceExceptionThresholdSeconds: intOf(block, "adherence_exception_threshold_seconds"),
-		NonOnQueueActivitiesEquivalent:     boolOf(block, "non_on_queue_activities_equivalent"),
-		TrackOnQueueActivity:               boolOf(block, "track_on_queue_activity"),
+		SevereAlertThresholdMinutes:        wfm.IntOf(block, "severe_alert_threshold_minutes"),
+		AdherenceTargetPercent:             wfm.IntOf(block, "adherence_target_percent"),
+		AdherenceExceptionThresholdSeconds: wfm.IntOf(block, "adherence_exception_threshold_seconds"),
+		NonOnQueueActivitiesEquivalent:     wfm.BoolOf(block, "non_on_queue_activities_equivalent"),
+		TrackOnQueueActivity:               wfm.BoolOf(block, "track_on_queue_activity"),
 	}
-	if categories := stringSliceOf(block, "ignored_activity_categories", nil); categories != nil {
+	if categories := wfm.StringSliceOf(block, "ignored_activity_categories", nil); categories != nil {
 		adherence.IgnoredActivityCategories = &platformclientv2.Ignoredactivitycategories{Values: categories}
 	}
-	if codeIds := stringSliceOf(block, "ignored_activity_code_ids", func(id string) string { return ModifyActivityCodeIdStateValue(id) }); codeIds != nil {
+	if codeIds := wfm.StringSliceOf(block, "ignored_activity_code_ids", func(id string) string { return wfm.ModifyActivityCodeIdStateValue(id) }); codeIds != nil {
 		adherence.IgnoredActivityCodeIds = &platformclientv2.Ignoredactivitycodeids{Values: codeIds}
 	}
 	return adherence
 }
 
 func buildTimeOffRequest(settings cty.Value) *platformclientv2.Timeoffsettingsrequest {
-	block := blockOf(settings, "time_off")
-	if !isPresent(block) {
+	block := wfm.BlockOf(settings, "time_off")
+	if !wfm.IsPresent(block) {
 		return nil
 	}
 	timeOff := &platformclientv2.Timeoffsettingsrequest{
-		SubmissionRangeEnforced:       boolOf(block, "submission_range_enforced"),
-		SubmissionRangeType:           stringOf(block, "submission_range_type"),
-		SubmissionEarliestDaysFromNow: intOf(block, "submission_earliest_days_from_now"),
-		SubmissionLatestDaysFromNow:   intOf(block, "submission_latest_days_from_now"),
+		SubmissionRangeEnforced:       wfm.BoolOf(block, "submission_range_enforced"),
+		SubmissionRangeType:           wfm.StringOf(block, "submission_range_type"),
+		SubmissionEarliestDaysFromNow: wfm.IntOf(block, "submission_earliest_days_from_now"),
+		SubmissionLatestDaysFromNow:   wfm.IntOf(block, "submission_latest_days_from_now"),
 	}
-	if latestDate := dateOf(block, "submission_latest_date"); latestDate != nil {
+	if latestDate := wfm.DateOf(block, "submission_latest_date"); latestDate != nil {
 		timeOff.SubmissionLatestDate = &platformclientv2.Valuewrapperlocaldate{Value: latestDate}
 	}
 	return timeOff
 }
 
 func buildShrinkageOverrides(scheduling cty.Value) *platformclientv2.Shrinkageoverrides {
-	attr := attrOf(scheduling, "shrinkage_overrides")
-	if !isPresent(attr) {
+	attr := wfm.AttrOf(scheduling, "shrinkage_overrides")
+	if !wfm.IsPresent(attr) {
 		return nil
 	}
 	if attr.LengthInt() == 0 {
@@ -174,92 +71,92 @@ func buildShrinkageOverrides(scheduling cty.Value) *platformclientv2.Shrinkageov
 	values := make([]platformclientv2.Shrinkageoverride, 0, attr.LengthInt())
 	for _, element := range attr.AsValueSlice() {
 		values = append(values, platformclientv2.Shrinkageoverride{
-			IntervalIndex:    intOf(element, "interval_index"),
-			ShrinkagePercent: floatOf(element, "shrinkage_percent"),
+			IntervalIndex:    wfm.IntOf(element, "interval_index"),
+			ShrinkagePercent: wfm.FloatOf(element, "shrinkage_percent"),
 		})
 	}
 	return &platformclientv2.Shrinkageoverrides{Values: &values}
 }
 
 func buildScheduling(settings cty.Value) *platformclientv2.Schedulingsettingsrequest {
-	block := blockOf(settings, "scheduling")
-	if !isPresent(block) {
+	block := wfm.BlockOf(settings, "scheduling")
+	if !wfm.IsPresent(block) {
 		return nil
 	}
 	scheduling := &platformclientv2.Schedulingsettingsrequest{
-		MaxOccupancyPercentForDeferredWork: intOf(block, "max_occupancy_percent_for_deferred_work"),
-		DefaultShrinkagePercent:            floatOf(block, "default_shrinkage_percent"),
+		MaxOccupancyPercentForDeferredWork: wfm.IntOf(block, "max_occupancy_percent_for_deferred_work"),
+		DefaultShrinkagePercent:            wfm.FloatOf(block, "default_shrinkage_percent"),
 		ShrinkageOverrides:                 buildShrinkageOverrides(block),
-		StartDayOfWeekend:                  stringOf(block, "start_day_of_weekend"),
+		StartDayOfWeekend:                  wfm.StringOf(block, "start_day_of_weekend"),
 	}
 	// Only the configured planning period is sent. Switching between planning_period and monthly_planning_period does not clear the
 	// other one: that needs the other value wrapper sent with a null value, which is not done here.
-	if planningPeriod := blockOf(block, "planning_period"); isPresent(planningPeriod) {
+	if planningPeriod := wfm.BlockOf(block, "planning_period"); wfm.IsPresent(planningPeriod) {
 		scheduling.PlanningPeriod = &platformclientv2.Valuewrapperplanningperiodsettings{
 			Value: &platformclientv2.Planningperiodsettings{
-				WeekCount: intOf(planningPeriod, "week_count"),
-				StartDate: dateOf(planningPeriod, "start_date"),
+				WeekCount: wfm.IntOf(planningPeriod, "week_count"),
+				StartDate: wfm.DateOf(planningPeriod, "start_date"),
 			},
 		}
 	}
-	if monthlyPlanningPeriod := blockOf(block, "monthly_planning_period"); isPresent(monthlyPlanningPeriod) {
+	if monthlyPlanningPeriod := wfm.BlockOf(block, "monthly_planning_period"); wfm.IsPresent(monthlyPlanningPeriod) {
 		scheduling.MonthlyPlanningPeriod = &platformclientv2.Valuewrappermonthlyplanningperiodsettings{
-			Value: &platformclientv2.Monthlyplanningperiodsettings{StartDate: dateOf(monthlyPlanningPeriod, "start_date")},
+			Value: &platformclientv2.Monthlyplanningperiodsettings{StartDate: wfm.DateOf(monthlyPlanningPeriod, "start_date")},
 		}
 	}
-	if scheduleVisibility := blockOf(block, "schedule_visibility"); isPresent(scheduleVisibility) {
+	if scheduleVisibility := wfm.BlockOf(block, "schedule_visibility"); wfm.IsPresent(scheduleVisibility) {
 		scheduling.ScheduleVisibility = &platformclientv2.Schedulevisibilitysettingsrequest{
-			Enabled:     boolOf(scheduleVisibility, "enabled"),
-			FutureWeeks: intOf(scheduleVisibility, "future_weeks"),
+			Enabled:     wfm.BoolOf(scheduleVisibility, "enabled"),
+			FutureWeeks: wfm.IntOf(scheduleVisibility, "future_weeks"),
 		}
 	}
 	return scheduling
 }
 
 func buildShiftTrading(settings cty.Value) *platformclientv2.Shifttradesettings {
-	block := blockOf(settings, "shift_trading")
-	if !isPresent(block) {
+	block := wfm.BlockOf(settings, "shift_trading")
+	if !wfm.IsPresent(block) {
 		return nil
 	}
 	shiftTrading := &platformclientv2.Shifttradesettings{
-		Enabled:                           boolOf(block, "enabled"),
-		AutoReview:                        boolOf(block, "auto_review"),
-		AllowDirectTrades:                 boolOf(block, "allow_direct_trades"),
-		MinHoursInFuture:                  intOf(block, "min_hours_in_future"),
-		UnequalPaid:                       stringOf(block, "unequal_paid"),
-		OneSided:                          stringOf(block, "one_sided"),
-		WeeklyMinPaidViolations:           stringOf(block, "weekly_min_paid_violations"),
-		WeeklyMaxPaidViolations:           stringOf(block, "weekly_max_paid_violations"),
-		RequiresMatchingQueues:            boolOf(block, "requires_matching_queues"),
-		RequiresMatchingLanguages:         boolOf(block, "requires_matching_languages"),
-		RequiresMatchingSkills:            boolOf(block, "requires_matching_skills"),
-		RequiresMatchingPlanningGroups:    boolOf(block, "requires_matching_planning_groups"),
-		MaxTradeSpanWeeks:                 intOf(block, "max_trade_span_weeks"),
-		MaxTradesPerAgentPerWeek:          intOf(block, "max_trades_per_agent_per_week"),
-		MinMinutesBetweenShifts:           intOf(block, "min_minutes_between_shifts"),
-		PlanningPeriodMinPaidViolations:   stringOf(block, "planning_period_min_paid_violations"),
-		PlanningPeriodMaxPaidViolations:   stringOf(block, "planning_period_max_paid_violations"),
-		MinMinutesBetweenShiftsViolations: stringOf(block, "min_minutes_between_shifts_violations"),
+		Enabled:                           wfm.BoolOf(block, "enabled"),
+		AutoReview:                        wfm.BoolOf(block, "auto_review"),
+		AllowDirectTrades:                 wfm.BoolOf(block, "allow_direct_trades"),
+		MinHoursInFuture:                  wfm.IntOf(block, "min_hours_in_future"),
+		UnequalPaid:                       wfm.StringOf(block, "unequal_paid"),
+		OneSided:                          wfm.StringOf(block, "one_sided"),
+		WeeklyMinPaidViolations:           wfm.StringOf(block, "weekly_min_paid_violations"),
+		WeeklyMaxPaidViolations:           wfm.StringOf(block, "weekly_max_paid_violations"),
+		RequiresMatchingQueues:            wfm.BoolOf(block, "requires_matching_queues"),
+		RequiresMatchingLanguages:         wfm.BoolOf(block, "requires_matching_languages"),
+		RequiresMatchingSkills:            wfm.BoolOf(block, "requires_matching_skills"),
+		RequiresMatchingPlanningGroups:    wfm.BoolOf(block, "requires_matching_planning_groups"),
+		MaxTradeSpanWeeks:                 wfm.IntOf(block, "max_trade_span_weeks"),
+		MaxTradesPerAgentPerWeek:          wfm.IntOf(block, "max_trades_per_agent_per_week"),
+		MinMinutesBetweenShifts:           wfm.IntOf(block, "min_minutes_between_shifts"),
+		PlanningPeriodMinPaidViolations:   wfm.StringOf(block, "planning_period_min_paid_violations"),
+		PlanningPeriodMaxPaidViolations:   wfm.StringOf(block, "planning_period_max_paid_violations"),
+		MinMinutesBetweenShiftsViolations: wfm.StringOf(block, "min_minutes_between_shifts_violations"),
 
-		ExternalActivityRuleIgnoresActivityCategoryRule: boolOf(block, "external_activity_rule_ignores_activity_category_rule"),
+		ExternalActivityRuleIgnoresActivityCategoryRule: wfm.BoolOf(block, "external_activity_rule_ignores_activity_category_rule"),
 	}
-	if rules := attrOf(block, "activity_category_rules"); isPresent(rules) {
+	if rules := wfm.AttrOf(block, "activity_category_rules"); wfm.IsPresent(rules) {
 		activityRules := make([]platformclientv2.Shifttradeactivityrule, 0, rules.LengthInt())
 		for _, rule := range rules.AsValueSlice() {
 			activityRules = append(activityRules, platformclientv2.Shifttradeactivityrule{
-				ActivityCategory:          stringOf(rule, "activity_category"),
-				Action:                    stringOf(rule, "action"),
+				ActivityCategory:          wfm.StringOf(rule, "activity_category"),
+				Action:                    wfm.StringOf(rule, "action"),
 				ActivityCodeIdReplacement: activityCodeIdReplacement(rule),
 			})
 		}
 		shiftTrading.ActivityCategoryRules = &activityRules
 	}
-	if rules := attrOf(block, "external_activity_rules"); isPresent(rules) {
+	if rules := wfm.AttrOf(block, "external_activity_rules"); wfm.IsPresent(rules) {
 		externalRules := make([]platformclientv2.Shifttradeexternalactivityrule, 0, rules.LengthInt())
 		for _, rule := range rules.AsValueSlice() {
 			externalRules = append(externalRules, platformclientv2.Shifttradeexternalactivityrule{
-				ExternalActivityType:      stringOf(rule, "external_activity_type"),
-				Action:                    stringOf(rule, "action"),
+				ExternalActivityType:      wfm.StringOf(rule, "external_activity_type"),
+				Action:                    wfm.StringOf(rule, "action"),
 				ActivityCodeIdReplacement: activityCodeIdReplacement(rule),
 			})
 		}
@@ -271,11 +168,11 @@ func buildShiftTrading(settings cty.Value) *platformclientv2.Shifttradesettings 
 // activityCodeIdReplacement reads the id of the activity code that replaces activities in a shift trade rule, without the business unit
 // that comes in front of it when it is the id of an activity code resource, because a management unit only uses activity codes of its business unit
 func activityCodeIdReplacement(rule cty.Value) *string {
-	replacement := nonEmpty(stringOf(rule, "activity_code_id_replacement"))
+	replacement := nonEmpty(wfm.StringOf(rule, "activity_code_id_replacement"))
 	if replacement == nil {
 		return nil
 	}
-	activityCodeId := ModifyActivityCodeIdStateValue(*replacement)
+	activityCodeId := wfm.ModifyActivityCodeIdStateValue(*replacement)
 	return &activityCodeId
 }
 
@@ -288,17 +185,17 @@ func nonEmpty(value *string) *string {
 
 // rawSettings returns the settings block from the raw configuration, or a null value if it was not configured
 func rawSettings(d *schema.ResourceData) cty.Value {
-	return blockOf(d.GetRawConfig(), "settings")
+	return wfm.BlockOf(d.GetRawConfig(), "settings")
 }
 
 func buildCreateManagementUnitRequest(d *schema.ResourceData) *platformclientv2.Createmanagementunitapirequest {
 	request := &platformclientv2.Createmanagementunitapirequest{
 		Name:           platformclientv2.String(d.Get("name").(string)),
 		BusinessUnitId: platformclientv2.String(d.Get("business_unit_id").(string)),
-		DivisionId:     nonEmpty(stringOf(d.GetRawConfig(), "division_id")),
+		DivisionId:     nonEmpty(wfm.StringOf(d.GetRawConfig(), "division_id")),
 	}
 
-	if settings := rawSettings(d); isPresent(settings) {
+	if settings := rawSettings(d); wfm.IsPresent(settings) {
 		request.Settings = &platformclientv2.Createmanagementunitsettingsrequest{
 			Adherence:    buildAdherence(settings),
 			TimeOff:      buildTimeOffRequest(settings),
@@ -312,11 +209,11 @@ func buildCreateManagementUnitRequest(d *schema.ResourceData) *platformclientv2.
 func buildUpdateManagementUnitRequest(d *schema.ResourceData, metadata *platformclientv2.Wfmversionedentitymetadata) *platformclientv2.Updatemanagementunitrequest {
 	request := &platformclientv2.Updatemanagementunitrequest{
 		Name:       platformclientv2.String(d.Get("name").(string)),
-		DivisionId: nonEmpty(stringOf(d.GetRawConfig(), "division_id")),
+		DivisionId: nonEmpty(wfm.StringOf(d.GetRawConfig(), "division_id")),
 	}
 
 	settings := &platformclientv2.Managementunitsettingsrequest{}
-	if rawSettings := rawSettings(d); isPresent(rawSettings) {
+	if rawSettings := rawSettings(d); wfm.IsPresent(rawSettings) {
 		settings.Adherence = buildAdherence(rawSettings)
 		settings.TimeOff = buildTimeOffRequest(rawSettings)
 		settings.Scheduling = buildScheduling(rawSettings)
@@ -340,8 +237,8 @@ func flattenAdherence(adherence *platformclientv2.Adherencesettings) []interface
 		"adherence_exception_threshold_seconds": *adherence.AdherenceExceptionThresholdSeconds,
 		"non_on_queue_activities_equivalent":    *adherence.NonOnQueueActivitiesEquivalent,
 		"track_on_queue_activity":               *adherence.TrackOnQueueActivity,
-		"ignored_activity_categories":           stringSet(*adherence.IgnoredActivityCategories.Values),
-		"ignored_activity_code_ids":             stringSet(*adherence.IgnoredActivityCodeIds.Values),
+		"ignored_activity_categories":           wfm.StringSet(*adherence.IgnoredActivityCategories.Values),
+		"ignored_activity_code_ids":             wfm.StringSet(*adherence.IgnoredActivityCodeIds.Values),
 	}
 	return []interface{}{block}
 }
@@ -357,7 +254,7 @@ func flattenTimeOff(timeOff *platformclientv2.Timeoffsettingsresponse) []interfa
 		"submission_latest_days_from_now":   *timeOff.SubmissionLatestDaysFromNow,
 	}
 	if timeOff.SubmissionLatestDate != nil {
-		block["submission_latest_date"] = timeOff.SubmissionLatestDate.Format(dateLayout)
+		block["submission_latest_date"] = timeOff.SubmissionLatestDate.Format(wfm.DateLayout)
 	}
 	return []interface{}{block}
 }
@@ -386,12 +283,12 @@ func flattenScheduling(scheduling *platformclientv2.Schedulingsettingsresponse) 
 	if scheduling.PlanningPeriod != nil {
 		block["planning_period"] = []interface{}{map[string]interface{}{
 			"week_count": *scheduling.PlanningPeriod.WeekCount,
-			"start_date": scheduling.PlanningPeriod.StartDate.Format(dateLayout),
+			"start_date": scheduling.PlanningPeriod.StartDate.Format(wfm.DateLayout),
 		}}
 	}
 	if scheduling.MonthlyPlanningPeriod != nil {
 		block["monthly_planning_period"] = []interface{}{map[string]interface{}{
-			"start_date": scheduling.MonthlyPlanningPeriod.StartDate.Format(dateLayout),
+			"start_date": scheduling.MonthlyPlanningPeriod.StartDate.Format(wfm.DateLayout),
 		}}
 	}
 	return []interface{}{block}
@@ -469,14 +366,6 @@ func setIfNotNil[T any](target map[string]interface{}, key string, value *T) {
 	if value != nil {
 		target[key] = *value
 	}
-}
-
-func stringSet(values []string) *schema.Set {
-	elements := make([]interface{}, len(values))
-	for i, value := range values {
-		elements[i] = value
-	}
-	return schema.NewSet(schema.HashString, elements)
 }
 
 // GenerateManagementUnitResource returns terraform config for a management unit, used in tests
