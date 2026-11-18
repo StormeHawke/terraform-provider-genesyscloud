@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -143,21 +144,10 @@ func queryLimitValuesFn(ctx context.Context, p *timeOffLimitProxy, businessUnitI
 
 // getAllBusinessUnitsFn is an implementation of the function to list Genesys Cloud business units
 func getAllBusinessUnitsFn(ctx context.Context, p *timeOffLimitProxy) (*[]platformclientv2.Businessunitlistitem, *platformclientv2.APIResponse, error) {
-	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementBusinessunits("", "")
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return listing.Entities, resp, nil
+	return wfm.GetAllBusinessUnits(p.workforceManagementApi)
 }
 
 // getAllManagementUnitsFn is an implementation of the function to list Genesys Cloud management units.
-// The api documents paging as unsupported and returns every management unit, so the paging arguments are placeholders.
 func getAllManagementUnitsFn(ctx context.Context, p *timeOffLimitProxy) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error) {
-	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return listing.Entities, resp, nil
+	return wfm.GetAllManagementUnits(p.workforceManagementApi)
 }

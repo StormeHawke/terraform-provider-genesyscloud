@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -147,10 +148,5 @@ func deleteTimeOffPlanFn(ctx context.Context, p *timeOffPlanProxy, businessUnitI
 
 // getAllBusinessUnitsFn is an implementation of the function to list Genesys Cloud business units
 func getAllBusinessUnitsFn(ctx context.Context, p *timeOffPlanProxy) (*[]platformclientv2.Businessunitlistitem, *platformclientv2.APIResponse, error) {
-	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementBusinessunits("", "")
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return listing.Entities, resp, nil
+	return wfm.GetAllBusinessUnits(p.workforceManagementApi)
 }

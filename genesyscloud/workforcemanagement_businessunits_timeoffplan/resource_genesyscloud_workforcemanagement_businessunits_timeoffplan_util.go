@@ -3,7 +3,6 @@ package workforcemanagement_businessunits_timeoffplan
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sort"
 	"strings"
 	"time"
@@ -11,9 +10,8 @@ import (
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
-
-const dateLayout = "2006-01-02"
 
 // SplitTimeOffPlanTerraformId splits the resource id, which is in the form
 // <businessUnitId>/<timeOffPlanId>, into the businessUnitId and timeOffPlanId
@@ -25,62 +23,12 @@ func SplitTimeOffPlanTerraformId(id string) (businessUnitId string, planId strin
 	return parts[0], parts[1]
 }
 
-// ModifyActivityCodeIdStateValue strips the business unit from an activity code id before it is saved in state.
-// The activity code resource id is <businessUnitId>/<activityCodeId>, but the time off plan api only returns the activity code id,
-// so saving the composite value would cause a non-empty plan. The default activity codes have no prefix, and are left as they are.
-func ModifyActivityCodeIdStateValue(id interface{}) string {
-	activityCodeId := id.(string)
-	if i := strings.LastIndex(activityCodeId, "/"); i >= 0 {
-		return activityCodeId[i+1:]
-	}
-	return activityCodeId
-}
-
 /*
 The scalar settings have defaults in Genesys Cloud, so they are optional and computed and are built from the raw configuration, which says
 whether they were set. The collections and blocks are optional without being computed: what is in the configuration is what the plan has.
 */
 
 var nullValue = cty.NullVal(cty.DynamicPseudoType)
-
-func isPresent(v cty.Value) bool {
-	return !v.IsNull() && v.IsKnown()
-}
-
-func attrOf(v cty.Value, name string) cty.Value {
-	if !isPresent(v) || !v.Type().IsObjectType() || !v.Type().HasAttribute(name) {
-		return nullValue
-	}
-	return v.GetAttr(name)
-}
-
-func stringOf(v cty.Value, name string) *string {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value := attr.AsString()
-	return &value
-}
-
-func boolOf(v cty.Value, name string) *bool {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value := attr.True()
-	return &value
-}
-
-func intOf(v cty.Value, name string) *int {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	value, _ := new(big.Float).Set(attr.AsBigFloat()).Int64()
-	intValue := int(value)
-	return &intValue
-}
 
 func setToStrings(value interface{}, transform func(string) string) []string {
 	set, ok := value.(*schema.Set)
@@ -100,7 +48,7 @@ func setToStrings(value interface{}, transform func(string) string) []string {
 }
 
 func stripActivityCodePrefix(id string) string {
-	return ModifyActivityCodeIdStateValue(id)
+	return wfm.ModifyActivityCodeIdStateValue(id)
 }
 
 func sameStrings(a []string, b []string) bool {
@@ -154,7 +102,7 @@ func currentOverrideDates(dates *[]platformclientv2.Overridedate) []overrideDate
 	}
 	for _, date := range *dates {
 		if date.Date != nil && date.VarType != nil {
-			current = append(current, overrideDate{date: date.Date.Format(dateLayout), dateTyp: *date.VarType})
+			current = append(current, overrideDate{date: date.Date.Format(wfm.DateLayout), dateTyp: *date.VarType})
 		}
 	}
 	sort.Slice(current, func(i, j int) bool { return current[i].date < current[j].date })
@@ -176,7 +124,7 @@ func sameOverrideDates(a []overrideDate, b []overrideDate) bool {
 func toOverrideDates(dates []overrideDate) []platformclientv2.Overridedate {
 	result := make([]platformclientv2.Overridedate, 0, len(dates))
 	for _, entry := range dates {
-		parsed, err := time.Parse(dateLayout, entry.date)
+		parsed, err := time.Parse(wfm.DateLayout, entry.date)
 		if err != nil {
 			continue
 		}
@@ -212,15 +160,8 @@ func sameHrisType(a *platformclientv2.Hristimeofftype, b *platformclientv2.Hrist
 	if a == nil || b == nil {
 		return a == nil && b == nil
 	}
-	return stringValue(a.Id) == stringValue(b.Id) && stringValue(a.Name) == stringValue(b.Name) &&
-		stringValue(a.HrisIntegrationId) == stringValue(b.HrisIntegrationId) && stringValue(a.SecondaryId) == stringValue(b.SecondaryId)
-}
-
-func stringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
+	return wfm.StringValue(a.Id) == wfm.StringValue(b.Id) && wfm.StringValue(a.Name) == wfm.StringValue(b.Name) &&
+		wfm.StringValue(a.HrisIntegrationId) == wfm.StringValue(b.HrisIntegrationId) && wfm.StringValue(a.SecondaryId) == wfm.StringValue(b.SecondaryId)
 }
 
 // associations reads the association blocks of the configuration
@@ -260,12 +201,12 @@ func readAssociations(get func(string) interface{}) associations {
 
 func buildCreateRequest(config cty.Value, get func(string) interface{}) *platformclientv2.Bucreatetimeoffplanrequest {
 	request := &platformclientv2.Bucreatetimeoffplanrequest{
-		Name:                                stringOf(config, "name"),
-		AutoApprovalRule:                    stringOf(config, "auto_approval_rule"),
-		DaysBeforeStartToExpireFromWaitlist: intOf(config, "days_before_start_to_expire_from_waitlist"),
-		AutoPublishApprovedTimeOffRequests:  boolOf(config, "auto_publish_approved_time_off_requests"),
-		Enabled:                             boolOf(config, "enabled"),
-		CountAgainstTimeOffLimits:           boolOf(config, "count_against_time_off_limits"),
+		Name:                                wfm.StringOf(config, "name"),
+		AutoApprovalRule:                    wfm.StringOf(config, "auto_approval_rule"),
+		DaysBeforeStartToExpireFromWaitlist: wfm.IntOf(config, "days_before_start_to_expire_from_waitlist"),
+		AutoPublishApprovedTimeOffRequests:  wfm.BoolOf(config, "auto_publish_approved_time_off_requests"),
+		Enabled:                             wfm.BoolOf(config, "enabled"),
+		CountAgainstTimeOffLimits:           wfm.BoolOf(config, "count_against_time_off_limits"),
 		HrisTimeOffType:                     readHrisType(get("hris_time_off_type")),
 	}
 	if ids := setToStrings(get("activity_code_ids"), stripActivityCodePrefix); len(ids) > 0 {
@@ -344,12 +285,12 @@ func staffingGroupReferenceIds(references *[]platformclientv2.Staffinggrouprefer
 // when they differ from the current plan, because each of them replaces what the plan has.
 func buildUpdateRequest(config cty.Value, get func(string) interface{}, current *platformclientv2.Butimeoffplanresponse) *platformclientv2.Buupdatetimeoffplanrequest {
 	request := &platformclientv2.Buupdatetimeoffplanrequest{
-		Name:                                stringOf(config, "name"),
-		AutoApprovalRule:                    stringOf(config, "auto_approval_rule"),
-		DaysBeforeStartToExpireFromWaitlist: intOf(config, "days_before_start_to_expire_from_waitlist"),
-		AutoPublishApprovedTimeOffRequests:  boolOf(config, "auto_publish_approved_time_off_requests"),
-		Enabled:                             boolOf(config, "enabled"),
-		CountAgainstTimeOffLimits:           boolOf(config, "count_against_time_off_limits"),
+		Name:                                wfm.StringOf(config, "name"),
+		AutoApprovalRule:                    wfm.StringOf(config, "auto_approval_rule"),
+		DaysBeforeStartToExpireFromWaitlist: wfm.IntOf(config, "days_before_start_to_expire_from_waitlist"),
+		AutoPublishApprovedTimeOffRequests:  wfm.BoolOf(config, "auto_publish_approved_time_off_requests"),
+		Enabled:                             wfm.BoolOf(config, "enabled"),
+		CountAgainstTimeOffLimits:           wfm.BoolOf(config, "count_against_time_off_limits"),
 	}
 
 	if ids := setToStrings(get("activity_code_ids"), stripActivityCodePrefix); !sameStrings(ids, currentIds(derefStrings(current.ActivityCodeIds))) {
@@ -357,9 +298,9 @@ func buildUpdateRequest(config cty.Value, get func(string) interface{}, current 
 	}
 	// Genesys Cloud keeps restricted activity codes only for the rules that check activity codes: it clears them itself when the rule changes
 	// to one that does not, and rejects them when they are sent with such a rule, so they are only sent for the rules that check them.
-	rule := stringValue(stringOf(config, "auto_approval_rule"))
+	rule := wfm.StringValue(wfm.StringOf(config, "auto_approval_rule"))
 	if rule == "" {
-		rule = stringValue(current.AutoApprovalRule)
+		rule = wfm.StringValue(current.AutoApprovalRule)
 	}
 	if checksActivityCodes(rule) {
 		var currentRestricted []string

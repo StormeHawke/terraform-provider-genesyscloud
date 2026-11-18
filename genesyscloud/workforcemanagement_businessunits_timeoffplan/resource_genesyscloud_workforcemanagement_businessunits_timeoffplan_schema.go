@@ -1,14 +1,12 @@
 package workforcemanagement_businessunits_timeoffplan
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -28,13 +26,6 @@ func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterExporter(ResourceType, TimeOffPlanExporter())
 }
 
-func validateDate(value interface{}, key string) ([]string, []error) {
-	if _, err := time.Parse(dateLayout, value.(string)); err != nil {
-		return nil, []error{fmt.Errorf("%q must be a date in the format yyyy-MM-dd, got %q", key, value)}
-	}
-	return nil, nil
-}
-
 func idSet(description string, stateFunc schema.SchemaStateFunc) *schema.Schema {
 	return &schema.Schema{
 		Description: description,
@@ -50,7 +41,7 @@ var overrideDateResource = &schema.Resource{
 			Description:  `The date, in the format yyyy-MM-dd and interpreted in the time zone of the business unit.`,
 			Type:         schema.TypeString,
 			Required:     true,
-			ValidateFunc: validateDate,
+			ValidateFunc: wfm.ValidateDate,
 		},
 		"type": {
 			Description: `What happens to a time off request that conflicts with the date. Valid values: Blocked, ManualReview.`,
@@ -150,8 +141,8 @@ func ResourceTimeOffPlan() *schema.Resource {
 				Optional:    true,
 				Computed:    true,
 			},
-			"activity_code_ids":            idSet(`The ids of the time off activity codes that are part of this time off plan. The default activity codes have the id of their category.`, ModifyActivityCodeIdStateValue),
-			"restricted_activity_code_ids": idSet(`The ids of the non time off activity codes to check for conflicts, at most 50. They are required when the auto approval rule checks activity codes, and not allowed otherwise. A request is not approved automatically when one of these activity codes is scheduled during the time off.`, ModifyActivityCodeIdStateValue),
+			"activity_code_ids":            idSet(`The ids of the time off activity codes that are part of this time off plan. The default activity codes have the id of their category.`, wfm.ModifyActivityCodeIdStateValue),
+			"restricted_activity_code_ids": idSet(`The ids of the non time off activity codes to check for conflicts, at most 50. They are required when the auto approval rule checks activity codes, and not allowed otherwise. A request is not approved automatically when one of these activity codes is scheduled during the time off.`, wfm.ModifyActivityCodeIdStateValue),
 			"auto_approval_rule": {
 				Description: `The rule for approving time off requests automatically. Genesys Cloud uses Never by default. Valid values: Never, Always, CheckLimits, CheckActivityCodes, CheckLimitsAndActivityCodes. The rules that check limits need count_against_time_off_limits to be true, and the rules that check activity codes need restricted_activity_code_ids.`,
 				Type:        schema.TypeString,

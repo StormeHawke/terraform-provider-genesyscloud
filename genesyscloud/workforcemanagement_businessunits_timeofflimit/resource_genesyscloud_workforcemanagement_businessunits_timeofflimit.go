@@ -16,6 +16,7 @@ import (
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/constants"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -150,9 +151,9 @@ func readTimeOffLimit(ctx context.Context, d *schema.ResourceData, meta interfac
 			}
 			read := make([]valueRange, 0, len(managed))
 			for _, configured := range managed {
-				if unreadable[configured.start.Format(dateLayout)] {
+				if unreadable[configured.start.Format(wfm.DateLayout)] {
 					// Genesys Cloud cannot read values that are outside its window around today, so the range is kept as it is
-					log.Printf("The range of business unit %s time off limit %s that starts on %s is outside the dates Genesys Cloud can read, so it is not checked", businessUnitId, limitId, configured.start.Format(dateLayout))
+					log.Printf("The range of business unit %s time off limit %s that starts on %s is outside the dates Genesys Cloud can read, so it is not checked", businessUnitId, limitId, configured.start.Format(wfm.DateLayout))
 					read = append(read, configured)
 					continue
 				}
@@ -209,7 +210,7 @@ func queryManagedValues(ctx context.Context, proxy *timeOffLimitProxy, businessU
 			case err == nil:
 				allValues = append(allValues, *values.LimitValues...)
 			case isOutsideWindow(resp):
-				unreadable[single.start.Format(dateLayout)] = true
+				unreadable[single.start.Format(wfm.DateLayout)] = true
 			default:
 				return nil, nil, util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read the values of business unit %s time off limit %s: %s", businessUnitId, limitId, err), resp)
 			}

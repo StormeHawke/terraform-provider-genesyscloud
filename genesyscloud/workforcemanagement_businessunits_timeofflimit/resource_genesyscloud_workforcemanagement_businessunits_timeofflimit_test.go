@@ -11,6 +11,7 @@ import (
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 	businessUnits "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits"
 	managementUnits "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
 )
@@ -35,8 +36,8 @@ func TestAccResourceTimeOffLimit(t *testing.T) {
 	)
 
 	// Genesys Cloud only accepts limit dates in a window around today, so the dates are relative to it
-	firstDate := time.Now().AddDate(0, 0, 30).Format(dateLayout)
-	secondDate := time.Now().AddDate(0, 0, 90).Format(dateLayout)
+	firstDate := time.Now().AddDate(0, 0, 30).Format(wfm.DateLayout)
+	secondDate := time.Now().AddDate(0, 0, 90).Format(wfm.DateLayout)
 	dependencies := generateLimitDependencies("TestBU"+uuid.NewString(), "Test MU "+uuid.NewString())
 	businessUnitId := businessUnits.ResourceType + ".bu_1.id"
 	managementUnitId := managementUnits.ResourceType + ".mu_1.id"

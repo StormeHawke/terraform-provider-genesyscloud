@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 func resourceGetter(t *testing.T, values map[string]interface{}) func(string) interface{} {
@@ -32,7 +33,7 @@ func scalarConfig(values map[string]cty.Value) cty.Value {
 }
 
 func overrideDay(date string, dateType string) platformclientv2.Overridedate {
-	parsed, _ := time.Parse(dateLayout, date)
+	parsed, _ := time.Parse(wfm.DateLayout, date)
 	return platformclientv2.Overridedate{Date: &parsed, VarType: &dateType}
 }
 
@@ -44,10 +45,10 @@ func TestUnitSplitTimeOffPlanTerraformId(t *testing.T) {
 }
 
 func TestUnitModifyActivityCodeIdStateValue(t *testing.T) {
-	if got := ModifyActivityCodeIdStateValue("bu-1/code-2"); got != "code-2" {
+	if got := wfm.ModifyActivityCodeIdStateValue("bu-1/code-2"); got != "code-2" {
 		t.Errorf("expected code-2, got %s", got)
 	}
-	if got := ModifyActivityCodeIdStateValue("TimeOff"); got != "TimeOff" {
+	if got := wfm.ModifyActivityCodeIdStateValue("TimeOff"); got != "TimeOff" {
 		t.Errorf("a default activity code id has no prefix and must be kept, got %s", got)
 	}
 }

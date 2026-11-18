@@ -10,10 +10,10 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 const (
-	dateLayout       = "2006-01-02"
 	oneDay           = 24 * time.Hour
 	fifteenMinuteKey = "limit_minutes_per_fifteen_minutes"
 	dailyKey         = "limit_minutes_per_day"
@@ -36,13 +36,6 @@ func SplitTimeOffLimitTerraformId(id string) (businessUnitId string, limitId str
 		return id, ""
 	}
 	return parts[0], parts[1]
-}
-
-func validateDate(value interface{}, key string) ([]string, []error) {
-	if _, err := time.Parse(dateLayout, value.(string)); err != nil {
-		return nil, []error{fmt.Errorf("%q must be a date in the format yyyy-MM-dd, got %q", key, value)}
-	}
-	return nil, nil
 }
 
 // valueRange is a range of limit values: the minutes per day, or the minutes per fifteen minute interval, from a start date
@@ -111,7 +104,7 @@ func readValueRanges(value interface{}) []valueRange {
 		if !ok {
 			continue
 		}
-		start, err := time.Parse(dateLayout, fmt.Sprint(entry["start_date"]))
+		start, err := time.Parse(wfm.DateLayout, fmt.Sprint(entry["start_date"]))
 		if err != nil {
 			continue
 		}
@@ -124,7 +117,7 @@ func readValueRanges(value interface{}) []valueRange {
 // and must not overlap another range.
 func validateRanges(granularity string, ranges []valueRange) error {
 	for _, r := range ranges {
-		date := r.start.Format(dateLayout)
+		date := r.start.Format(wfm.DateLayout)
 		switch {
 		case len(r.perDay) == 0 && len(r.perFifteen) == 0:
 			return fmt.Errorf("the value range starting on %s must set %s or %s", date, dailyKey, fifteenMinuteKey)
@@ -141,7 +134,7 @@ func validateRanges(granularity string, ranges []valueRange) error {
 	sort.Slice(sorted, func(i, j int) bool { return sorted[i].start.Before(sorted[j].start) })
 	for i := 1; i < len(sorted); i++ {
 		if !sorted[i].start.After(sorted[i-1].end(maxSlotsPerDay)) {
-			return fmt.Errorf("the value ranges starting on %s and %s overlap", sorted[i-1].start.Format(dateLayout), sorted[i].start.Format(dateLayout))
+			return fmt.Errorf("the value ranges starting on %s and %s overlap", sorted[i-1].start.Format(wfm.DateLayout), sorted[i].start.Format(wfm.DateLayout))
 		}
 	}
 	return nil
@@ -272,7 +265,7 @@ func firstN(values []int, n int) []int {
 func flattenValueRanges(ranges []valueRange) []interface{} {
 	flattened := make([]interface{}, 0, len(ranges))
 	for _, r := range ranges {
-		entry := map[string]interface{}{"start_date": r.start.Format(dateLayout)}
+		entry := map[string]interface{}{"start_date": r.start.Format(wfm.DateLayout)}
 		if len(r.perDay) > 0 {
 			entry[dailyKey] = intsToInterfaces(r.perDay)
 		}

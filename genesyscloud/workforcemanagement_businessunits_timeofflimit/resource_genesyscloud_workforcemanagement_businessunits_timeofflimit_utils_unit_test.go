@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 func day(value string) time.Time {
-	parsed, _ := time.Parse(dateLayout, value)
+	parsed, _ := time.Parse(wfm.DateLayout, value)
 	return parsed
 }
 
@@ -29,8 +30,8 @@ func TestUnitSplitTimeOffLimitTerraformId(t *testing.T) {
 
 func TestUnitValueRangeCoversTheRightDates(t *testing.T) {
 	daily := dailyRange("2026-03-01", 10, 20, 30)
-	if daily.days(minSlotsPerDay) != 3 || daily.end(maxSlotsPerDay).Format(dateLayout) != "2026-03-03" {
-		t.Errorf("expected 3 days ending 2026-03-03, got %d ending %s", daily.days(minSlotsPerDay), daily.end(maxSlotsPerDay).Format(dateLayout))
+	if daily.days(minSlotsPerDay) != 3 || daily.end(maxSlotsPerDay).Format(wfm.DateLayout) != "2026-03-03" {
+		t.Errorf("expected 3 days ending 2026-03-03, got %d ending %s", daily.days(minSlotsPerDay), daily.end(maxSlotsPerDay).Format(wfm.DateLayout))
 	}
 
 	// 190 fifteen minute slots cover 2 days of 96 slots, but 3 days when the days are daylight saving days of 92 slots,
@@ -39,8 +40,8 @@ func TestUnitValueRangeCoversTheRightDates(t *testing.T) {
 	if fifteen.days(maxSlotsPerDay) != 2 || fifteen.days(minSlotsPerDay) != 3 {
 		t.Errorf("expected the shortest span to be 2 days and the longest 3, got %d and %d", fifteen.days(maxSlotsPerDay), fifteen.days(minSlotsPerDay))
 	}
-	if fifteen.end(minSlotsPerDay).Format(dateLayout) != "2026-03-03" {
-		t.Errorf("expected the longest span to end on 2026-03-03, got %s", fifteen.end(minSlotsPerDay).Format(dateLayout))
+	if fifteen.end(minSlotsPerDay).Format(wfm.DateLayout) != "2026-03-03" {
+		t.Errorf("expected the longest span to end on 2026-03-03, got %s", fifteen.end(minSlotsPerDay).Format(wfm.DateLayout))
 	}
 }
 
@@ -81,7 +82,7 @@ func TestUnitChangedRangesOnlyReturnsNewOrDifferentRanges(t *testing.T) {
 	current := []valueRange{dailyRange("2026-03-01", 1, 2), dailyRange("2026-04-01", 6), dailyRange("2026-05-01", 7)}
 
 	changed := changedRanges(old, current)
-	if len(changed) != 2 || changed[0].start.Format(dateLayout) != "2026-04-01" || changed[1].start.Format(dateLayout) != "2026-05-01" {
+	if len(changed) != 2 || changed[0].start.Format(wfm.DateLayout) != "2026-04-01" || changed[1].start.Format(wfm.DateLayout) != "2026-05-01" {
 		t.Errorf("expected only the changed and the new range, got %+v", changed)
 	}
 }
@@ -106,11 +107,11 @@ func TestUnitBuildSetValuesRequestKeepsTheGranularityOfEachRange(t *testing.T) {
 
 func TestUnitBuildQueryRangesCoverTheLongestSpan(t *testing.T) {
 	queries := buildQueryRanges([]valueRange{dailyRange("2026-03-01", 1, 2, 3), {start: day("2026-06-01"), perFifteen: make([]int, 96)}})
-	if queries[0].EndDate.Format(dateLayout) != "2026-03-03" {
+	if queries[0].EndDate.Format(wfm.DateLayout) != "2026-03-03" {
 		t.Errorf("unexpected query for the daily range %+v", queries[0])
 	}
 	// 96 slots take 2 days when the first day has 92 slots
-	if queries[1].EndDate.Format(dateLayout) != "2026-06-02" {
+	if queries[1].EndDate.Format(wfm.DateLayout) != "2026-06-02" {
 		t.Errorf("expected the fifteen minute range to be read over 2 days, got %+v", queries[1])
 	}
 }

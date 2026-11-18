@@ -8,6 +8,7 @@ import (
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -38,7 +39,7 @@ var valueRangeResource = &schema.Resource{
 			Description:  `The first date of the range, in the format yyyy-MM-dd. The range ends on the last date covered by the list of limit minutes that is set.`,
 			Type:         schema.TypeString,
 			Required:     true,
-			ValidateFunc: validateDate,
+			ValidateFunc: wfm.ValidateDate,
 		},
 		"limit_minutes_per_day": {
 			Description: `The time off limit in minutes for each day of the range, starting on start_date. Use it when the granularity is Daily. A day without a limit has a value of 0.`,
