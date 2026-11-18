@@ -18,9 +18,6 @@ const (
 	// values are 1500 (the default) and 2000. 1500 is therefore valid for every organization, and an organization that raised its limit
 	// only needs one extra request for a larger move, so the limit is not looked up.
 	moveBatchSize = 1500
-	// scheduleUpdateBatchSize is the number of agents sent per update of the schedulable flag. The update has no documented limit,
-	// so it stays conservative.
-	scheduleUpdateBatchSize = 100
 	// schedulableReadConcurrency bounds the parallel per-agent reads. The api has no public route that lists agent configuration, and
 	// reading one agent is rate limited to 60 requests per minute per user per organization, so reading every agent of a large
 	// management unit takes minutes regardless of the concurrency and relies on the client retrying rate limited requests.
@@ -204,18 +201,6 @@ func buildScheduleUpdates(makeSchedulable []string, makeUnschedulable []string) 
 		updates = append(updates, platformclientv2.Updatemuagentrequest{UserId: platformclientv2.String(id), Schedulable: platformclientv2.Bool(false)})
 	}
 	return updates
-}
-
-func chunkUpdates(updates []platformclientv2.Updatemuagentrequest, size int) [][]platformclientv2.Updatemuagentrequest {
-	var chunks [][]platformclientv2.Updatemuagentrequest
-	for i := 0; i < len(updates); i += size {
-		end := i + size
-		if end > len(updates) {
-			end = len(updates)
-		}
-		chunks = append(chunks, updates[i:end])
-	}
-	return chunks
 }
 
 func toLookup(values []string) map[string]bool {

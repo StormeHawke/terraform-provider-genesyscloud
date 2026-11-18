@@ -104,22 +104,29 @@ func readManagementUnitAgents(ctx context.Context, d *schema.ResourceData, meta 
 	})
 }
 
-// updateManagementUnitAgents is used by the workforcemanagement_managementunits_agents resource to update the agents of a management unit in Genesys Cloud
+// updateManagementUnitAgents is used by the workforcemanagement_managementunits_agents resource to update the agents of a management unit in Genesys Cloud.
+// When management_unit_id changes, the agents are moved straight into the new management unit, which takes them out of the old one, instead of being removed and added again.
 func updateManagementUnitAgents(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
 	proxy := getManagementUnitAgentsProxy(sdkConfig)
+	managementUnitId := d.Get("management_unit_id").(string)
 
 	oldSchedulable, newSchedulable := d.GetChange("schedulable_user_ids")
 	oldUnschedulable, newUnschedulable := d.GetChange("unschedulable_user_ids")
+	previousSchedulable, previousUnschedulable := setToSlice(oldSchedulable.(*schema.Set)), setToSlice(oldUnschedulable.(*schema.Set))
+	if d.HasChange("management_unit_id") {
+		previousSchedulable, previousUnschedulable = nil, nil
+	}
 
-	log.Printf("Updating agents of management unit %s", d.Id())
-	if diagErr := applyAgents(ctx, proxy, d.Id(),
+	log.Printf("Updating agents of management unit %s", managementUnitId)
+	if diagErr := applyAgents(ctx, proxy, managementUnitId,
 		setToSlice(newSchedulable.(*schema.Set)), setToSlice(newUnschedulable.(*schema.Set)),
-		setToSlice(oldSchedulable.(*schema.Set)), setToSlice(oldUnschedulable.(*schema.Set))); diagErr != nil {
+		previousSchedulable, previousUnschedulable); diagErr != nil {
 		return diagErr
 	}
 
-	log.Printf("Updated agents of management unit %s", d.Id())
+	d.SetId(managementUnitId)
+	log.Printf("Updated agents of management unit %s", managementUnitId)
 	return readManagementUnitAgents(ctx, d, meta)
 }
 
@@ -206,64 +213,67 @@ func moveAgents(ctx context.Context, proxy *managementUnitAgentsProxy, userIds [
 	return nil
 }
 
-// updateSchedulable writes the schedulable flag in batches. The api rejects users that are not yet members, so a membership
-// that has not settled is retried.
+// updateSchedulable writes the schedulable flag in a single request. The api rejects users that are not yet members, so a membership
+// that has not settled is polled until the update is accepted.
 func updateSchedulable(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, updates []platformclientv2.Updatemuagentrequest) diag.Diagnostics {
-	for _, batch := range chunkUpdates(updates, scheduleUpdateBatchSize) {
-		batch := batch
-		diagErr := util.WithRetries(ctx, util.UpdateRetryTimeout, func() *retry.RetryError {
-			resp, err := proxy.updateAgents(ctx, managementUnitId, batch)
-			if err == nil {
-				return nil
-			}
-			builtDiagErr := util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to update agents of management unit %s: %s", managementUnitId, err), resp)
-			if resp != nil && strings.Contains(strings.ToLower(resp.ErrorMessage), "not found") {
-				return retry.RetryableError(builtDiagErr)
-			}
-			return retry.NonRetryableError(builtDiagErr)
-		})
-		if diagErr != nil {
-			return diagErr
-		}
+	if len(updates) == 0 {
+		return nil
 	}
-	return nil
+
+	send := func() (string, diag.Diagnostics) {
+		resp, err := proxy.updateAgents(ctx, managementUnitId, updates)
+		if err == nil {
+			return "", nil
+		}
+		message := fmt.Sprintf("Failed to update agents of management unit %s: %s", managementUnitId, err)
+		if resp != nil && strings.Contains(strings.ToLower(resp.ErrorMessage), "not found") {
+			return message, nil
+		}
+		return "", util.BuildAPIDiagnosticError(ResourceType, message, resp)
+	}
+
+	pending, diagErr := send()
+	if diagErr != nil || pending == "" {
+		return diagErr
+	}
+	return util.PollUntilDone(ctx, util.UpdateRetryTimeout, send)
 }
 
 // waitForMembers waits until the management unit has exactly the desired members.
 // The move api reports each user's result only through the WfmMoveAgentsComplete event, so a move that failed permanently (for example
 // because an agent limit was exceeded) can only be noticed here, as users that never join.
 func waitForMembers(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, desired []string) diag.Diagnostics {
-	return util.WithRetries(ctx, membershipTimeout, func() *retry.RetryError {
+	return util.PollUntilDone(ctx, membershipTimeout, func() (string, diag.Diagnostics) {
 		members, resp, err := proxy.getMembers(ctx, managementUnitId)
 		if err != nil {
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s while waiting for the move: %s", managementUnitId, err), resp))
+			return "", util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s while waiting for the move: %s", managementUnitId, err), resp)
 		}
 		if sameMembers(members, desired) {
-			return nil
+			return "", nil
 		}
 
 		missing, unexpected := diffMembers(desired, members)
-		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf(
+		return fmt.Sprintf(
 			"management unit %s does not have the expected agents yet (not yet members: %v, still members: %v). If this persists, the move may have failed: "+
 				"the agent limit of the management unit or business unit may be exceeded, an agent may already be moving to a different management unit, "+
-				"or the source management unit may not be authorized", managementUnitId, missing, unexpected), resp))
+				"or the source management unit may not be authorized", managementUnitId, missing, unexpected), nil
 	})
 }
 
 // waitForAgentsRemoved waits until none of the removed users are members of the management unit any more
 func waitForAgentsRemoved(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, removed []string) diag.Diagnostics {
-	return util.WithRetries(ctx, membershipTimeout, func() *retry.RetryError {
+	return util.PollUntilDone(ctx, membershipTimeout, func() (string, diag.Diagnostics) {
 		members, resp, err := proxy.getMembers(ctx, managementUnitId)
 		if err != nil {
 			if util.IsStatus404(resp) {
-				return nil
+				return "", nil
 			}
-			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s while waiting for the removal: %s", managementUnitId, err), resp))
+			return "", util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s while waiting for the removal: %s", managementUnitId, err), resp)
 		}
 		if len(overlap(removed, members)) == 0 {
-			return nil
+			return "", nil
 		}
-		return retry.RetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("management unit %s still has agents that should have been removed", managementUnitId), resp))
+		return fmt.Sprintf("management unit %s still has agents that should have been removed", managementUnitId), nil
 	})
 }
 
