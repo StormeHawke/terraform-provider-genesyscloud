@@ -15,3 +15,14 @@ func GetAllBusinessUnits(api *platformclientv2.WorkforceManagementApi) (*[]platf
 
 	return listing.Entities, resp, nil
 }
+
+// GetAllManagementUnits retrieves every management unit in the organization, across all business units.
+// The api documents paging as unsupported and returns every management unit, so the paging arguments are placeholders.
+func GetAllManagementUnits(api *platformclientv2.WorkforceManagementApi) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error) {
+	listing, resp, err := api.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
+	if err != nil {
+		return nil, resp, err
+	}
+
+	return listing.Entities, resp, nil
+}
