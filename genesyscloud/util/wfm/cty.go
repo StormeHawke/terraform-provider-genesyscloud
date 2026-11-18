@@ -2,6 +2,7 @@ package wfm
 
 import (
 	"math/big"
+	"sort"
 	"time"
 
 	"github.com/hashicorp/go-cty/cty"
@@ -95,6 +96,15 @@ func StringSliceOf(v cty.Value, name string, transform func(string) string) *[]s
 		}
 	}
 	return &values
+}
+
+// SortedStringSliceOf returns the strings of a list or set attribute in alphabetical order, so requests do not depend on the order of a set
+func SortedStringSliceOf(v cty.Value, name string) *[]string {
+	values := StringSliceOf(v, name, nil)
+	if values != nil {
+		sort.Strings(*values)
+	}
+	return values
 }
 
 // DateOf returns the date of a yyyy-MM-dd attribute, or nil when it is not present, empty or not a date

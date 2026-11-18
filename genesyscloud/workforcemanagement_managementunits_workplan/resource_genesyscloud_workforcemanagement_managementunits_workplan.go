@@ -14,6 +14,7 @@ import (
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/constants"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -104,12 +105,12 @@ func readWorkPlan(ctx context.Context, d *schema.ResourceData, meta interface{})
 			_ = d.Set("valid", *workPlan.Valid)
 		}
 		if workPlan.OptionalDays != nil {
-			_ = d.Set("optional_days", stringSet(*workPlan.OptionalDays.Values))
+			_ = d.Set("optional_days", wfm.StringSet(*workPlan.OptionalDays.Values))
 		}
 		_ = d.Set("shift_start_variances", flattenShiftStartVariances(workPlan.ShiftStartVariances))
 		priorShifts, _ := d.Get("shifts").([]interface{})
 		_ = d.Set("shifts", flattenShifts(workPlan.Shifts, priorShifts))
-		_ = d.Set("agent_ids", stringSet(existingAgentIds(workPlan)))
+		_ = d.Set("agent_ids", wfm.StringSet(existingAgentIds(workPlan)))
 
 		log.Printf("Read management unit %s work plan %s", managementUnitId, workPlanId)
 		return cc.CheckState(d)

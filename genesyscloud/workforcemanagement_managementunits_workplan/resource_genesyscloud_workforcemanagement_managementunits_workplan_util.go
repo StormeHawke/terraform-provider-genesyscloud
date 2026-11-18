@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 // SplitWorkPlanTerraformId splits the resource id, which is in the form
@@ -22,17 +23,6 @@ func SplitWorkPlanTerraformId(id string) (managementUnitId string, workPlanId st
 		return id, ""
 	}
 	return parts[0], parts[1]
-}
-
-// ModifyActivityCodeIdStateValue strips the business unit from an activity code id before it is saved in state.
-// The activity code resource id is <businessUnitId>/<activityCodeId>, but the work plan api only returns the activity code id,
-// so saving the composite value would cause a non-empty plan.
-func ModifyActivityCodeIdStateValue(id interface{}) string {
-	activityCodeId := id.(string)
-	if i := strings.LastIndex(activityCodeId, "/"); i >= 0 {
-		return activityCodeId[i+1:]
-	}
-	return activityCodeId
 }
 
 /*
@@ -83,51 +73,12 @@ func snakeToPascal(key string) string {
 
 var nullValue = cty.NullVal(cty.DynamicPseudoType)
 
-func isPresent(v cty.Value) bool {
-	return !v.IsNull() && v.IsKnown()
-}
-
-func attrOf(v cty.Value, name string) cty.Value {
-	if !isPresent(v) || !v.Type().IsObjectType() || !v.Type().HasAttribute(name) {
-		return nullValue
-	}
-	return v.GetAttr(name)
-}
-
-// blockOf returns the single element of a list block with a maximum of one item
-func blockOf(v cty.Value, name string) cty.Value {
-	list := attrOf(v, name)
-	if !isPresent(list) || list.LengthInt() == 0 {
-		return nullValue
-	}
-	return list.AsValueSlice()[0]
-}
-
-func stringSliceOf(v cty.Value, name string, transform func(string) string) *[]string {
-	attr := attrOf(v, name)
-	if !isPresent(attr) {
-		return nil
-	}
-	values := make([]string, 0, attr.LengthInt())
-	for _, element := range attr.AsValueSlice() {
-		if isPresent(element) {
-			value := element.AsString()
-			if transform != nil {
-				value = transform(value)
-			}
-			values = append(values, value)
-		}
-	}
-	sort.Strings(values)
-	return &values
-}
-
 // assignScalars copies the configured values of the listed attributes onto the same-named fields of target, a pointer to an sdk struct
 func assignScalars(target interface{}, config cty.Value, keys []string) {
 	structValue := reflect.ValueOf(target).Elem()
 	for _, key := range keys {
-		attr := attrOf(config, key)
-		if !isPresent(attr) {
+		attr := wfm.AttrOf(config, key)
+		if !wfm.IsPresent(attr) {
 			continue
 		}
 		field := structValue.FieldByName(snakeToPascal(key))
@@ -186,7 +137,7 @@ func scalarsToMap(source interface{}, keys []string) map[string]interface{} {
 }
 
 func dayWrapper(config cty.Value, name string) *platformclientv2.Setwrapperdayofweek {
-	days := stringSliceOf(config, name, nil)
+	days := wfm.SortedStringSliceOf(config, name)
 	if days == nil {
 		return nil
 	}
@@ -197,7 +148,7 @@ func readActivity(config cty.Value) platformclientv2.Workplanactivity {
 	activity := platformclientv2.Workplanactivity{}
 	assignScalars(&activity, config, activityScalarKeys)
 	if activity.ActivityCodeId != nil {
-		activity.ActivityCodeId = platformclientv2.String(ModifyActivityCodeIdStateValue(*activity.ActivityCodeId))
+		activity.ActivityCodeId = platformclientv2.String(wfm.ModifyActivityCodeIdStateValue(*activity.ActivityCodeId))
 	}
 	return activity
 }
@@ -209,13 +160,13 @@ func readShift(config cty.Value) platformclientv2.Workplanshift {
 	assignScalars(&shift, config, shiftScalarKeys)
 	shift.Days = dayWrapper(config, "days")
 
-	if constraints := blockOf(config, "planning_period_constraints"); isPresent(constraints) {
+	if constraints := wfm.BlockOf(config, "planning_period_constraints"); wfm.IsPresent(constraints) {
 		planningPeriod := platformclientv2.Planningperiodshiftconstraints{}
 		assignScalars(&planningPeriod, constraints, planningPeriodConstraintKeys)
 		shift.PlanningPeriodConstraints = &planningPeriod
 	}
 
-	if activities := attrOf(config, "activities"); isPresent(activities) {
+	if activities := wfm.AttrOf(config, "activities"); wfm.IsPresent(activities) {
 		configured := make([]platformclientv2.Workplanactivity, 0, activities.LengthInt())
 		for _, activity := range activities.AsValueSlice() {
 			configured = append(configured, readActivity(activity))
@@ -227,8 +178,8 @@ func readShift(config cty.Value) platformclientv2.Workplanshift {
 
 // readShifts reads the configured shifts, or returns nil when the configuration does not have any shifts attribute
 func readShifts(config cty.Value) *[]platformclientv2.Workplanshift {
-	attr := attrOf(config, "shifts")
-	if !isPresent(attr) {
+	attr := wfm.AttrOf(config, "shifts")
+	if !wfm.IsPresent(attr) {
 		return nil
 	}
 	shifts := make([]platformclientv2.Workplanshift, 0, attr.LengthInt())
@@ -239,13 +190,13 @@ func readShifts(config cty.Value) *[]platformclientv2.Workplanshift {
 }
 
 func readShiftStartVariances(config cty.Value) *platformclientv2.Listwrappershiftstartvariance {
-	attr := attrOf(config, "shift_start_variances")
-	if !isPresent(attr) {
+	attr := wfm.AttrOf(config, "shift_start_variances")
+	if !wfm.IsPresent(attr) {
 		return nil
 	}
 	variances := make([]platformclientv2.Shiftstartvariance, 0, attr.LengthInt())
 	for _, variance := range attr.AsValueSlice() {
-		entry := platformclientv2.Shiftstartvariance{ApplicableDays: stringSliceOf(variance, "applicable_days", nil)}
+		entry := platformclientv2.Shiftstartvariance{ApplicableDays: wfm.SortedStringSliceOf(variance, "applicable_days")}
 		assignScalars(&entry, variance, []string{"max_shift_start_variance_minutes"})
 		variances = append(variances, entry)
 	}
@@ -253,7 +204,7 @@ func readShiftStartVariances(config cty.Value) *platformclientv2.Listwrappershif
 }
 
 func readAgentIds(config cty.Value) *[]string {
-	return stringSliceOf(config, "agent_ids", nil)
+	return wfm.SortedStringSliceOf(config, "agent_ids")
 }
 
 // activityCovers reports whether an existing activity has every value that is set on the configured activity
@@ -362,26 +313,17 @@ func buildAgentUpdates(existing []string, configured []string) []platformclientv
 	}
 
 	var updates []platformclientv2.Deletableuserreference
-	for _, id := range sortedKeys(configuredSet) {
+	for _, id := range wfm.SortedKeys(configuredSet) {
 		if !existingSet[id] {
 			updates = append(updates, platformclientv2.Deletableuserreference{Id: platformclientv2.String(id)})
 		}
 	}
-	for _, id := range sortedKeys(existingSet) {
+	for _, id := range wfm.SortedKeys(existingSet) {
 		if !configuredSet[id] {
 			updates = append(updates, platformclientv2.Deletableuserreference{Id: platformclientv2.String(id), Delete: platformclientv2.Bool(true)})
 		}
 	}
 	return updates
-}
-
-func sortedKeys(set map[string]bool) []string {
-	keys := make([]string, 0, len(set))
-	for key := range set {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 func existingAgentIds(workPlan *platformclientv2.Workplan) []string {
@@ -483,19 +425,19 @@ func flattenActivities(activities *[]platformclientv2.Workplanactivity, priorOrd
 }
 
 func activitySortKey(activity platformclientv2.Workplanactivity) string {
-	return fmt.Sprintf("%s|%s|%d|%d", stringValue(activity.ActivityCodeId), stringValue(activity.Description), intValue(activity.LengthMinutes), intValue(activity.ExactStartTimeMinutes))
+	return fmt.Sprintf("%s|%s|%d|%d", wfm.StringValue(activity.ActivityCodeId), wfm.StringValue(activity.Description), intValue(activity.LengthMinutes), intValue(activity.ExactStartTimeMinutes))
 }
 
 // activityMatchesPrior compares the identifying values of an activity with the same activity of the previous state
 func activityMatchesPrior(activity platformclientv2.Workplanactivity, prior map[string]interface{}) bool {
-	return stringValue(activity.ActivityCodeId) == fmt.Sprint(prior["activity_code_id"]) &&
-		stringValue(activity.Description) == fmt.Sprint(prior["description"]) &&
+	return wfm.StringValue(activity.ActivityCodeId) == fmt.Sprint(prior["activity_code_id"]) &&
+		wfm.StringValue(activity.Description) == fmt.Sprint(prior["description"]) &&
 		intValue(activity.LengthMinutes) == intOfInterface(prior["length_minutes"])
 }
 
 func flattenShifts(shifts *[]platformclientv2.Workplanshift, priorShifts []interface{}) []interface{} {
 	remaining := append([]platformclientv2.Workplanshift(nil), *shifts...)
-	sort.SliceStable(remaining, func(i, j int) bool { return stringValue(remaining[i].Name) < stringValue(remaining[j].Name) })
+	sort.SliceStable(remaining, func(i, j int) bool { return wfm.StringValue(remaining[i].Name) < wfm.StringValue(remaining[j].Name) })
 
 	priorByName := make(map[string][]map[string]interface{})
 	var priorNames []string
@@ -520,7 +462,7 @@ func flattenShifts(shifts *[]platformclientv2.Workplanshift, priorShifts []inter
 	ordered := make([]platformclientv2.Workplanshift, 0, len(remaining))
 	for _, name := range priorNames {
 		for i, candidate := range remaining {
-			if stringValue(candidate.Name) == name {
+			if wfm.StringValue(candidate.Name) == name {
 				ordered = append(ordered, candidate)
 				remaining = append(remaining[:i], remaining[i+1:]...)
 				break
@@ -533,12 +475,12 @@ func flattenShifts(shifts *[]platformclientv2.Workplanshift, priorShifts []inter
 	for _, shift := range ordered {
 		shiftMap := scalarsToMap(shift, shiftScalarKeys)
 		if shift.Days != nil && shift.Days.Values != nil {
-			shiftMap["days"] = stringSet(*shift.Days.Values)
+			shiftMap["days"] = wfm.StringSet(*shift.Days.Values)
 		}
 		if shift.PlanningPeriodConstraints != nil {
 			shiftMap["planning_period_constraints"] = []interface{}{scalarsToMap(shift.PlanningPeriodConstraints, planningPeriodConstraintKeys)}
 		}
-		shiftMap["activities"] = flattenActivities(shift.Activities, priorByName[stringValue(shift.Name)])
+		shiftMap["activities"] = flattenActivities(shift.Activities, priorByName[wfm.StringValue(shift.Name)])
 		flattened = append(flattened, shiftMap)
 	}
 	return flattened
@@ -549,27 +491,12 @@ func flattenShiftStartVariances(variances *platformclientv2.Listwrappershiftstar
 	if variances != nil {
 		for _, variance := range *variances.Values {
 			flattened = append(flattened, map[string]interface{}{
-				"applicable_days":                  stringSet(*variance.ApplicableDays),
+				"applicable_days":                  wfm.StringSet(*variance.ApplicableDays),
 				"max_shift_start_variance_minutes": *variance.MaxShiftStartVarianceMinutes,
 			})
 		}
 	}
 	return schema.NewSet(schema.HashResource(shiftStartVarianceResource), flattened)
-}
-
-func stringSet(values []string) *schema.Set {
-	elements := make([]interface{}, len(values))
-	for i, value := range values {
-		elements[i] = value
-	}
-	return schema.NewSet(schema.HashString, elements)
-}
-
-func stringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
 }
 
 func intValue(value *int) int {
@@ -627,11 +554,11 @@ func formatValidationMessages(response *platformclientv2.Validateworkplanrespons
 
 	var lines []string
 	for _, message := range *response.Messages.ViolationMessages {
-		lines = append(lines, fmt.Sprintf("- %s: %s%s", stringValue(message.Severity), stringValue(message.VarType), formatArguments(message.Arguments)))
+		lines = append(lines, fmt.Sprintf("- %s: %s%s", wfm.StringValue(message.Severity), wfm.StringValue(message.VarType), formatArguments(message.Arguments)))
 	}
 	if conflict := response.Messages.ConstraintConflictMessage; conflict != nil {
 		if conflict.Message != nil {
-			lines = append(lines, fmt.Sprintf("- Constraint conflict: %s%s", stringValue(conflict.Message.VarType), formatArguments(conflict.Message.Arguments)))
+			lines = append(lines, fmt.Sprintf("- Constraint conflict: %s%s", wfm.StringValue(conflict.Message.VarType), formatArguments(conflict.Message.Arguments)))
 		}
 		if conflict.ConflictedConstraintMessages != nil && len(*conflict.ConflictedConstraintMessages) > 0 {
 			lines = append(lines, fmt.Sprintf("  (%d conflicting constraints)", len(*conflict.ConflictedConstraintMessages)))
@@ -646,7 +573,7 @@ func formatArguments(arguments *[]platformclientv2.Workplanvalidationmessageargu
 	}
 	parts := make([]string, 0, len(*arguments))
 	for _, argument := range *arguments {
-		parts = append(parts, fmt.Sprintf("%s=%s", stringValue(argument.VarType), stringValue(argument.Value)))
+		parts = append(parts, fmt.Sprintf("%s=%s", wfm.StringValue(argument.VarType), wfm.StringValue(argument.Value)))
 	}
 	return " (" + strings.Join(parts, ", ") + ")"
 }

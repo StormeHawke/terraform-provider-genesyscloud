@@ -6,6 +6,7 @@ import (
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -23,18 +24,6 @@ func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterResource(ResourceType, ResourceWorkPlan())
 	regInstance.RegisterDataSource(ResourceType, DataSourceWorkPlan())
 	regInstance.RegisterExporter(ResourceType, WorkPlanExporter())
-}
-
-func optionalInt(description string) *schema.Schema {
-	return &schema.Schema{Description: description, Type: schema.TypeInt, Optional: true, Computed: true}
-}
-
-func optionalBool(description string) *schema.Schema {
-	return &schema.Schema{Description: description, Type: schema.TypeBool, Optional: true, Computed: true}
-}
-
-func optionalString(description string) *schema.Schema {
-	return &schema.Schema{Description: description, Type: schema.TypeString, Optional: true, Computed: true}
 }
 
 func daySet(description string) *schema.Schema {
@@ -65,9 +54,9 @@ var shiftStartVarianceResource = &schema.Resource{
 
 var planningPeriodConstraintsResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
-		"enabled":       optionalBool(`Whether shifts per planning period are constrained.`),
-		"minimum_count": optionalInt(`The minimum number of shifts required per planning period.`),
-		"maximum_count": optionalInt(`The maximum number of shifts allowed per planning period.`),
+		"enabled":       wfm.OptionalBool(`Whether shifts per planning period are constrained.`),
+		"minimum_count": wfm.OptionalInt(`The minimum number of shifts required per planning period.`),
+		"maximum_count": wfm.OptionalInt(`The maximum number of shifts allowed per planning period.`),
 	},
 }
 
@@ -77,21 +66,21 @@ var activityResource = &schema.Resource{
 			Description: `The id of the activity code of this activity. The default activity codes that every management unit has use the id of their category rather than a UUID, so the same id works in every management unit.`,
 			Type:        schema.TypeString,
 			Required:    true,
-			StateFunc:   ModifyActivityCodeIdStateValue,
+			StateFunc:   wfm.ModifyActivityCodeIdStateValue,
 		},
-		"description":                             optionalString(`The description of the activity.`),
-		"length_minutes":                          optionalInt(`The length of the activity in minutes.`),
-		"start_time_is_relative_to_shift_start":   optionalBool(`Whether the start time of the activity is relative to the start time of the shift it belongs to.`),
-		"flexible_start_time":                     optionalBool(`Whether the start time of the activity is flexible.`),
-		"earliest_start_time_minutes":             optionalInt(`The earliest activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is true.`),
-		"latest_start_time_minutes":               optionalInt(`The latest activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is true.`),
-		"exact_start_time_minutes":                optionalInt(`The exact activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is false.`),
-		"start_time_increment_minutes":            optionalInt(`The increment in minutes that contributes to the different possible start times for the activity.`),
-		"counts_as_paid_time":                     optionalBool(`Whether the activity is paid.`),
-		"counts_as_contiguous_work_time":          optionalBool(`Whether the activity duration counts towards contiguous work time.`),
-		"minimum_length_from_shift_start_minutes": optionalInt(`The minimum duration in minutes between the shift start and the start of the activity (for example a break or meal).`),
-		"minimum_length_from_shift_end_minutes":   optionalInt(`The minimum duration in minutes between the end of the activity (for example a break or meal) and the shift end.`),
-		"maximum_length_from_shift_end_minutes":   optionalInt(`The maximum duration in minutes between the end of the activity (for example a break or meal) and the shift end.`),
+		"description":                             wfm.OptionalString(`The description of the activity.`),
+		"length_minutes":                          wfm.OptionalInt(`The length of the activity in minutes.`),
+		"start_time_is_relative_to_shift_start":   wfm.OptionalBool(`Whether the start time of the activity is relative to the start time of the shift it belongs to.`),
+		"flexible_start_time":                     wfm.OptionalBool(`Whether the start time of the activity is flexible.`),
+		"earliest_start_time_minutes":             wfm.OptionalInt(`The earliest activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is true.`),
+		"latest_start_time_minutes":               wfm.OptionalInt(`The latest activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is true.`),
+		"exact_start_time_minutes":                wfm.OptionalInt(`The exact activity start in minutes, relative to the shift start if start_time_is_relative_to_shift_start is true and to midnight otherwise. Used if flexible_start_time is false.`),
+		"start_time_increment_minutes":            wfm.OptionalInt(`The increment in minutes that contributes to the different possible start times for the activity.`),
+		"counts_as_paid_time":                     wfm.OptionalBool(`Whether the activity is paid.`),
+		"counts_as_contiguous_work_time":          wfm.OptionalBool(`Whether the activity duration counts towards contiguous work time.`),
+		"minimum_length_from_shift_start_minutes": wfm.OptionalInt(`The minimum duration in minutes between the shift start and the start of the activity (for example a break or meal).`),
+		"minimum_length_from_shift_end_minutes":   wfm.OptionalInt(`The minimum duration in minutes between the end of the activity (for example a break or meal) and the shift end.`),
+		"maximum_length_from_shift_end_minutes":   wfm.OptionalInt(`The maximum duration in minutes between the end of the activity (for example a break or meal) and the shift end.`),
 	},
 }
 
@@ -103,24 +92,24 @@ var shiftResource = &schema.Resource{
 			Required:    true,
 		},
 		"days":                                   daySet(`The days of the week this shift applies to. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.`),
-		"flexible_start_time":                    optionalBool(`Whether the start time of the shift is flexible.`),
-		"exact_start_time_minutes_from_midnight": optionalInt(`The exact start time of the shift as minutes from midnight. Used if flexible_start_time is false.`),
-		"earliest_start_time_minutes_from_midnight": optionalInt(`The earliest start time of the shift as minutes from midnight. Used if flexible_start_time is true.`),
-		"latest_start_time_minutes_from_midnight":   optionalInt(`The latest start time of the shift as minutes from midnight. Used if flexible_start_time is true.`),
-		"start_increment_minutes":                   optionalInt(`The increment in minutes that contributes to the different possible start times for the shift. Used if flexible_start_time is true.`),
-		"constrain_latest_stop_time":                optionalBool(`Whether the latest stop time constraint for the shift is enabled.`),
-		"latest_stop_time_minutes_from_midnight":    optionalInt(`The latest stop time of the shift as minutes from midnight. Used if constrain_latest_stop_time is true.`),
-		"constrain_earliest_stop_time":              optionalBool(`Whether the earliest stop time constraint for the shift is enabled.`),
-		"earliest_stop_time_minutes_from_midnight":  optionalInt(`The earliest time the shift can end, as minutes from midnight. Used if constrain_earliest_stop_time is true.`),
-		"flexible_paid_time":                        optionalBool(`Whether the paid time setting for the shift is flexible.`),
-		"exact_paid_time_minutes":                   optionalInt(`The exact paid time in minutes of the shift. Used if flexible_paid_time is false.`),
-		"minimum_paid_time_minutes":                 optionalInt(`The minimum paid time in minutes of the shift. Used if flexible_paid_time is true.`),
-		"maximum_paid_time_minutes":                 optionalInt(`The maximum paid time in minutes of the shift. Used if flexible_paid_time is true.`),
-		"constrain_contiguous_work_time":            optionalBool(`Whether the contiguous work time constraint for the shift is enabled.`),
-		"minimum_contiguous_work_time_minutes":      optionalInt(`The minimum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.`),
-		"maximum_contiguous_work_time_minutes":      optionalInt(`The maximum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.`),
-		"constrain_day_off":                         optionalBool(`Whether the day off rule is enabled.`),
-		"day_off_rule":                              optionalString(`The day off rule for agents to have the next or previous day off. Used if constrain_day_off is true. Valid values: NextDayOff, PreviousDayOff.`),
+		"flexible_start_time":                    wfm.OptionalBool(`Whether the start time of the shift is flexible.`),
+		"exact_start_time_minutes_from_midnight": wfm.OptionalInt(`The exact start time of the shift as minutes from midnight. Used if flexible_start_time is false.`),
+		"earliest_start_time_minutes_from_midnight": wfm.OptionalInt(`The earliest start time of the shift as minutes from midnight. Used if flexible_start_time is true.`),
+		"latest_start_time_minutes_from_midnight":   wfm.OptionalInt(`The latest start time of the shift as minutes from midnight. Used if flexible_start_time is true.`),
+		"start_increment_minutes":                   wfm.OptionalInt(`The increment in minutes that contributes to the different possible start times for the shift. Used if flexible_start_time is true.`),
+		"constrain_latest_stop_time":                wfm.OptionalBool(`Whether the latest stop time constraint for the shift is enabled.`),
+		"latest_stop_time_minutes_from_midnight":    wfm.OptionalInt(`The latest stop time of the shift as minutes from midnight. Used if constrain_latest_stop_time is true.`),
+		"constrain_earliest_stop_time":              wfm.OptionalBool(`Whether the earliest stop time constraint for the shift is enabled.`),
+		"earliest_stop_time_minutes_from_midnight":  wfm.OptionalInt(`The earliest time the shift can end, as minutes from midnight. Used if constrain_earliest_stop_time is true.`),
+		"flexible_paid_time":                        wfm.OptionalBool(`Whether the paid time setting for the shift is flexible.`),
+		"exact_paid_time_minutes":                   wfm.OptionalInt(`The exact paid time in minutes of the shift. Used if flexible_paid_time is false.`),
+		"minimum_paid_time_minutes":                 wfm.OptionalInt(`The minimum paid time in minutes of the shift. Used if flexible_paid_time is true.`),
+		"maximum_paid_time_minutes":                 wfm.OptionalInt(`The maximum paid time in minutes of the shift. Used if flexible_paid_time is true.`),
+		"constrain_contiguous_work_time":            wfm.OptionalBool(`Whether the contiguous work time constraint for the shift is enabled.`),
+		"minimum_contiguous_work_time_minutes":      wfm.OptionalInt(`The minimum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.`),
+		"maximum_contiguous_work_time_minutes":      wfm.OptionalInt(`The maximum contiguous work time in minutes. Used if constrain_contiguous_work_time is true.`),
+		"constrain_day_off":                         wfm.OptionalBool(`Whether the day off rule is enabled.`),
+		"day_off_rule":                              wfm.OptionalString(`The day off rule for agents to have the next or previous day off. Used if constrain_day_off is true. Valid values: NextDayOff, PreviousDayOff.`),
 		"planning_period_constraints": {
 			Description: `Constraints on the number of times this shift is worked per planning period.`,
 			Type:        schema.TypeList,
@@ -165,38 +154,38 @@ func ResourceWorkPlan() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    true,
 			},
-			"enabled": optionalBool(`Whether the work plan is enabled for scheduling. An enabled work plan that fails validation is rejected by Genesys Cloud.`),
+			"enabled": wfm.OptionalBool(`Whether the work plan is enabled for scheduling. An enabled work plan that fails validation is rejected by Genesys Cloud.`),
 			"valid": {
 				Description: `Whether the work plan is valid.`,
 				Type:        schema.TypeBool,
 				Computed:    true,
 			},
-			"constrain_weekly_paid_time":                             optionalBool(`Whether the weekly paid time constraint is enabled.`),
-			"flexible_weekly_paid_time":                              optionalBool(`Whether the weekly paid time constraint is flexible.`),
-			"weekly_exact_paid_minutes":                              optionalInt(`The exact weekly paid time in minutes. Used if flexible_weekly_paid_time is false.`),
-			"weekly_minimum_paid_minutes":                            optionalInt(`The minimum weekly paid time in minutes. Used if flexible_weekly_paid_time is true.`),
-			"weekly_maximum_paid_minutes":                            optionalInt(`The maximum weekly paid time in minutes. Used if flexible_weekly_paid_time is true.`),
-			"constrain_paid_time_granularity":                        optionalBool(`Whether the paid time granularity of shifts is constrained.`),
-			"paid_time_granularity_minutes":                          optionalInt(`The granularity in minutes allowed for the paid time of a shift. Used if constrain_paid_time_granularity is true.`),
-			"constrain_minimum_time_between_shifts":                  optionalBool(`Whether the minimum time between shifts constraint is enabled.`),
-			"minimum_time_between_shifts_minutes":                    optionalInt(`The minimum time between shifts in minutes. Used if constrain_minimum_time_between_shifts is true.`),
-			"maximum_days":                                           optionalInt(`The maximum number of days in a week that can be scheduled.`),
-			"minimum_consecutive_non_working_minutes_per_week":       optionalInt(`The minimum consecutive non working minutes per week that agents are allowed to have off.`),
-			"constrain_maximum_consecutive_working_weekends":         optionalBool(`Whether to constrain the maximum consecutive working weekends.`),
-			"maximum_consecutive_working_weekends":                   optionalInt(`The maximum number of consecutive weekends that agents are allowed to work.`),
-			"minimum_working_days_per_week":                          optionalInt(`The minimum number of days agents must work per week.`),
-			"constrain_maximum_consecutive_working_days":             optionalBool(`Whether to constrain the maximum consecutive working days.`),
-			"maximum_consecutive_working_days":                       optionalInt(`The maximum number of consecutive days agents are allowed to work. Used if constrain_maximum_consecutive_working_days is true.`),
-			"minimum_shift_start_distance_minutes":                   optionalInt(`The minimum duration in minutes between the start times of two consecutive working days.`),
-			"minimum_days_off_per_planning_period":                   optionalInt(`The minimum days off in the planning period.`),
-			"maximum_days_off_per_planning_period":                   optionalInt(`The maximum days off in the planning period.`),
-			"minimum_paid_minutes_per_planning_period":               optionalInt(`The minimum paid minutes in the planning period.`),
-			"maximum_paid_minutes_per_planning_period":               optionalInt(`The maximum paid minutes in the planning period.`),
-			"constrain_maximum_working_weekends_per_planning_period": optionalBool(`Whether to constrain the maximum working weekends in the planning period.`),
-			"maximum_working_weekends_per_planning_period":           optionalInt(`The maximum working weekends in the planning period.`),
+			"constrain_weekly_paid_time":                             wfm.OptionalBool(`Whether the weekly paid time constraint is enabled.`),
+			"flexible_weekly_paid_time":                              wfm.OptionalBool(`Whether the weekly paid time constraint is flexible.`),
+			"weekly_exact_paid_minutes":                              wfm.OptionalInt(`The exact weekly paid time in minutes. Used if flexible_weekly_paid_time is false.`),
+			"weekly_minimum_paid_minutes":                            wfm.OptionalInt(`The minimum weekly paid time in minutes. Used if flexible_weekly_paid_time is true.`),
+			"weekly_maximum_paid_minutes":                            wfm.OptionalInt(`The maximum weekly paid time in minutes. Used if flexible_weekly_paid_time is true.`),
+			"constrain_paid_time_granularity":                        wfm.OptionalBool(`Whether the paid time granularity of shifts is constrained.`),
+			"paid_time_granularity_minutes":                          wfm.OptionalInt(`The granularity in minutes allowed for the paid time of a shift. Used if constrain_paid_time_granularity is true.`),
+			"constrain_minimum_time_between_shifts":                  wfm.OptionalBool(`Whether the minimum time between shifts constraint is enabled.`),
+			"minimum_time_between_shifts_minutes":                    wfm.OptionalInt(`The minimum time between shifts in minutes. Used if constrain_minimum_time_between_shifts is true.`),
+			"maximum_days":                                           wfm.OptionalInt(`The maximum number of days in a week that can be scheduled.`),
+			"minimum_consecutive_non_working_minutes_per_week":       wfm.OptionalInt(`The minimum consecutive non working minutes per week that agents are allowed to have off.`),
+			"constrain_maximum_consecutive_working_weekends":         wfm.OptionalBool(`Whether to constrain the maximum consecutive working weekends.`),
+			"maximum_consecutive_working_weekends":                   wfm.OptionalInt(`The maximum number of consecutive weekends that agents are allowed to work.`),
+			"minimum_working_days_per_week":                          wfm.OptionalInt(`The minimum number of days agents must work per week.`),
+			"constrain_maximum_consecutive_working_days":             wfm.OptionalBool(`Whether to constrain the maximum consecutive working days.`),
+			"maximum_consecutive_working_days":                       wfm.OptionalInt(`The maximum number of consecutive days agents are allowed to work. Used if constrain_maximum_consecutive_working_days is true.`),
+			"minimum_shift_start_distance_minutes":                   wfm.OptionalInt(`The minimum duration in minutes between the start times of two consecutive working days.`),
+			"minimum_days_off_per_planning_period":                   wfm.OptionalInt(`The minimum days off in the planning period.`),
+			"maximum_days_off_per_planning_period":                   wfm.OptionalInt(`The maximum days off in the planning period.`),
+			"minimum_paid_minutes_per_planning_period":               wfm.OptionalInt(`The minimum paid minutes in the planning period.`),
+			"maximum_paid_minutes_per_planning_period":               wfm.OptionalInt(`The maximum paid minutes in the planning period.`),
+			"constrain_maximum_working_weekends_per_planning_period": wfm.OptionalBool(`Whether to constrain the maximum working weekends in the planning period.`),
+			"maximum_working_weekends_per_planning_period":           wfm.OptionalInt(`The maximum working weekends in the planning period.`),
 			"optional_days":                                          daySet(`The optional days to schedule for this work plan. Valid values: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday.`),
-			"shift_start_variance_type":                              optionalString(`Ensures an agent starts each workday within a threshold. Valid values: ShiftStart, ShiftStartAndPaidDuration.`),
-			"shift_start_variance_period":                            optionalString(`The period over which the maximum shift start variance is applied. Valid values: Weekly, PlanningPeriod.`),
+			"shift_start_variance_type":                              wfm.OptionalString(`Ensures an agent starts each workday within a threshold. Valid values: ShiftStart, ShiftStartAndPaidDuration.`),
+			"shift_start_variance_period":                            wfm.OptionalString(`The period over which the maximum shift start variance is applied. Valid values: Weekly, PlanningPeriod.`),
 			"shift_start_variances": {
 				Description: `The variance in minutes among the start times of shifts, per set of days.`,
 				Type:        schema.TypeSet,
