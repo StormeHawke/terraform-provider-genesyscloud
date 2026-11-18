@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 func TestAccDataSourceServiceGoalTemplate(t *testing.T) {
@@ -24,17 +25,17 @@ func TestAccDataSourceServiceGoalTemplate(t *testing.T) {
 		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
 		Steps: []resource.TestStep{
 			{
-				Config: generateTestBusinessUnit(buResourceLabel, buName) +
+				Config: wfm.GenerateTestBusinessUnit(buResourceLabel, buName) +
 					GenerateServiceGoalTemplateResource(
 						resourceLabel,
-						businessUnitIdRef(buResourceLabel),
+						wfm.BusinessUnitIdRef(buResourceLabel),
 						name,
 						`abandon_rate {
 							include = true
 							percent = 5
 						}`,
 					) +
-					generateServiceGoalTemplateDataSource(dataSourceLabel, businessUnitIdRef(buResourceLabel), name, ResourceType+"."+resourceLabel),
+					generateServiceGoalTemplateDataSource(dataSourceLabel, wfm.BusinessUnitIdRef(buResourceLabel), name, ResourceType+"."+resourceLabel),
 				Check: resource.TestCheckResourceAttrPair(
 					"data."+ResourceType+"."+dataSourceLabel, "id",
 					ResourceType+"."+resourceLabel, "id",
