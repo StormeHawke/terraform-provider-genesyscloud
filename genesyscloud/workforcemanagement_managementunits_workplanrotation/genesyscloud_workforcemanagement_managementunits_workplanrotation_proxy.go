@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -146,12 +147,6 @@ func deleteWorkPlanRotationFn(ctx context.Context, p *workPlanRotationProxy, man
 }
 
 // getAllManagementUnitsFn is an implementation of the function to list Genesys Cloud management units.
-// The api documents paging as unsupported and returns every management unit, so the paging arguments are placeholders.
 func getAllManagementUnitsFn(ctx context.Context, p *workPlanRotationProxy) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error) {
-	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
-	if err != nil {
-		return nil, resp, err
-	}
-
-	return listing.Entities, resp, nil
+	return wfm.GetAllManagementUnits(p.workforceManagementApi)
 }

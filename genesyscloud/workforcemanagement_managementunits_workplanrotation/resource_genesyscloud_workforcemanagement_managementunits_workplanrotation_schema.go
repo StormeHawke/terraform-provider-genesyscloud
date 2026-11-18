@@ -1,14 +1,12 @@
 package workforcemanagement_managementunits_workplanrotation
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/customdiff"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
 	registrar "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_register"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 /*
@@ -31,13 +29,6 @@ func SetRegistrar(regInstance registrar.Registrar) {
 	regInstance.RegisterExporter(ResourceType, WorkPlanRotationExporter())
 }
 
-func validateDate(value interface{}, key string) ([]string, []error) {
-	if _, err := time.Parse(dateLayout, value.(string)); err != nil {
-		return nil, []error{fmt.Errorf("%q must be a date in the format yyyy-MM-dd, got %q", key, value)}
-	}
-	return nil, nil
-}
-
 var rotationAgentResource = &schema.Resource{
 	Schema: map[string]*schema.Schema{
 		"user_id": {
@@ -49,13 +40,13 @@ var rotationAgentResource = &schema.Resource{
 			Description:  `The first date in the business unit's time zone on which the agent follows the rotation, in the format yyyy-MM-dd.`,
 			Type:         schema.TypeString,
 			Required:     true,
-			ValidateFunc: validateDate,
+			ValidateFunc: wfm.ValidateDate,
 		},
 		"end_date": {
 			Description:  `The last date in the business unit's time zone on which the agent follows the rotation, in the format yyyy-MM-dd. Leave it out for an open ended date range.`,
 			Type:         schema.TypeString,
 			Optional:     true,
-			ValidateFunc: validateDate,
+			ValidateFunc: wfm.ValidateDate,
 		},
 		"position": {
 			Description: `The start position of the agent in the pattern of the rotation. Positions start at 0, which is the first work plan of the pattern.`,
@@ -101,13 +92,13 @@ func ResourceWorkPlanRotation() *schema.Resource {
 				Description:  `The first date in the business unit's time zone on which the work plan rotation applies, in the format yyyy-MM-dd.`,
 				Type:         schema.TypeString,
 				Required:     true,
-				ValidateFunc: validateDate,
+				ValidateFunc: wfm.ValidateDate,
 			},
 			"end_date": {
 				Description:  `The last date in the business unit's time zone on which the work plan rotation applies, in the format yyyy-MM-dd. Leave it out for an open ended work plan rotation.`,
 				Type:         schema.TypeString,
 				Optional:     true,
-				ValidateFunc: validateDate,
+				ValidateFunc: wfm.ValidateDate,
 			},
 			"work_plan_ids": {
 				Description: `The ids of the work plans of the pattern, in the order in which they rotate weekly. Every work plan must be enabled, and a work plan that is used here cannot be disabled or deleted.`,

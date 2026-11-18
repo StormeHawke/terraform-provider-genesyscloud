@@ -7,13 +7,14 @@ import (
 	"github.com/hashicorp/go-cty/cty"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	resourceExporter "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/resource_exporter"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 func TestUnitModifyActivityCodeIdStateValue(t *testing.T) {
-	if got := ModifyActivityCodeIdStateValue("bu-1/code-2"); got != "code-2" {
+	if got := wfm.ModifyActivityCodeIdStateValue("bu-1/code-2"); got != "code-2" {
 		t.Errorf("expected code-2, got %s", got)
 	}
-	if got := ModifyActivityCodeIdStateValue("code-2"); got != "code-2" {
+	if got := wfm.ModifyActivityCodeIdStateValue("code-2"); got != "code-2" {
 		t.Errorf("expected code-2, got %s", got)
 	}
 }

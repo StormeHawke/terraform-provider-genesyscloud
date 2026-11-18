@@ -11,6 +11,7 @@ import (
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	routingQueue "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/routing_queue"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 	businessUnits "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits"
 	serviceGoalTemplate "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_servicegoaltemplate"
 )
@@ -49,10 +50,10 @@ func TestAccResourcePlanningGroup(t *testing.T) {
 		name2              = "Test Planning Group Updated " + uuid.NewString()
 	)
 
-	baseConfig := generateTestBusinessUnit(buResourceLabel, buName) +
+	baseConfig := wfm.GenerateTestBusinessUnit(buResourceLabel, buName) +
 		serviceGoalTemplate.GenerateServiceGoalTemplateResource(
 			sgtResourceLabel,
-			businessUnitIdRef(buResourceLabel),
+			wfm.BusinessUnitIdRef(buResourceLabel),
 			sgtName,
 			`abandon_rate {
 				include = true
@@ -67,7 +68,7 @@ func TestAccResourcePlanningGroup(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				// Create without a service goal template or route paths
-				Config: baseConfig + GeneratePlanningGroupResource(resourceLabel, businessUnitIdRef(buResourceLabel), name1),
+				Config: baseConfig + GeneratePlanningGroupResource(resourceLabel, wfm.BusinessUnitIdRef(buResourceLabel), name1),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair(ResourceType+"."+resourceLabel, "business_unit_id", businessUnits.ResourceType+"."+buResourceLabel, "id"),
 					resource.TestCheckResourceAttr(ResourceType+"."+resourceLabel, "name", name1),
@@ -78,7 +79,7 @@ func TestAccResourcePlanningGroup(t *testing.T) {
 				// Update with a service goal template and a route path
 				Config: baseConfig + GeneratePlanningGroupResource(
 					resourceLabel,
-					businessUnitIdRef(buResourceLabel),
+					wfm.BusinessUnitIdRef(buResourceLabel),
 					name2,
 					fmt.Sprintf("service_goal_template_id = %s.%s.id", serviceGoalTemplate.ResourceType, sgtResourceLabel),
 					fmt.Sprintf(`route_paths {
@@ -101,18 +102,6 @@ func TestAccResourcePlanningGroup(t *testing.T) {
 		},
 		CheckDestroy: testVerifyPlanningGroupDestroyed,
 	})
-}
-
-func generateTestBusinessUnit(resourceLabel string, name string) string {
-	return businessUnits.GenerateWorkforcemanagementBusinessUnitResource(
-		resourceLabel,
-		name,
-		businessUnits.GenerateWorkforcemanagementBusinessUnitSettings("Sunday", "Etc/UTC", "", ""),
-	)
-}
-
-func businessUnitIdRef(buResourceLabel string) string {
-	return businessUnits.ResourceType + "." + buResourceLabel + ".id"
 }
 
 func testVerifyPlanningGroupDestroyed(state *terraform.State) error {
