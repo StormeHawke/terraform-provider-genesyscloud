@@ -105,9 +105,14 @@ func createManagementUnitFn(ctx context.Context, p *managementUnitProxy, managem
 }
 
 // getAllManagementUnitsFn is the implementation for retrieving all management units in Genesys Cloud.
-// The api documents paging as unsupported and returns every management unit, so the paging arguments are placeholders.
 func getAllManagementUnitsFn(ctx context.Context, p *managementUnitProxy) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error) {
-	listing, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
+	return GetAllManagementUnits(p.workforceManagementApi)
+}
+
+// GetAllManagementUnits retrieves every management unit in the organization, across all business units. It is shared with the resources that
+// need to look up management units. The api documents paging as unsupported and returns every management unit, so the paging arguments are placeholders.
+func GetAllManagementUnits(api *platformclientv2.WorkforceManagementApi) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error) {
+	listing, resp, err := api.GetWorkforcemanagementManagementunits(100, 1, "", "", "")
 	if err != nil {
 		return nil, resp, err
 	}
