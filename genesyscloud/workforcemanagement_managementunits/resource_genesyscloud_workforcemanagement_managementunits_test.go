@@ -10,6 +10,7 @@ import (
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 	businessUnits "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits"
 )
 
@@ -30,7 +31,7 @@ func TestAccResourceManagementUnit(t *testing.T) {
 		fullResource     = ResourceType + "." + resourceLabel
 	)
 
-	businessUnitConfigs := generateTestBusinessUnit(bu1ResourceLabel, bu1Name) + generateTestBusinessUnit(bu2ResourceLabel, bu2Name)
+	businessUnitConfigs := wfm.GenerateTestBusinessUnit(bu1ResourceLabel, bu1Name) + wfm.GenerateTestBusinessUnit(bu2ResourceLabel, bu2Name)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { util.TestAccPreCheck(t) },
@@ -41,7 +42,7 @@ func TestAccResourceManagementUnit(t *testing.T) {
 				Config: businessUnitConfigs + GenerateManagementUnitResource(
 					resourceLabel,
 					name1,
-					businessUnitIdRef(bu1ResourceLabel),
+					wfm.BusinessUnitIdRef(bu1ResourceLabel),
 					`settings {
 						adherence {
 							adherence_target_percent       = 85
@@ -90,7 +91,7 @@ func TestAccResourceManagementUnit(t *testing.T) {
 				Config: businessUnitConfigs + GenerateManagementUnitResource(
 					resourceLabel,
 					name2,
-					businessUnitIdRef(bu1ResourceLabel),
+					wfm.BusinessUnitIdRef(bu1ResourceLabel),
 					`settings {
 						adherence {
 							adherence_target_percent       = 90
@@ -118,7 +119,7 @@ func TestAccResourceManagementUnit(t *testing.T) {
 				Config: businessUnitConfigs + GenerateManagementUnitResource(
 					resourceLabel,
 					name2,
-					businessUnitIdRef(bu2ResourceLabel),
+					wfm.BusinessUnitIdRef(bu2ResourceLabel),
 				),
 				Check: resource.TestCheckResourceAttrPair(fullResource, "business_unit_id", businessUnits.ResourceType+"."+bu2ResourceLabel, "id"),
 			},
@@ -131,18 +132,6 @@ func TestAccResourceManagementUnit(t *testing.T) {
 		},
 		CheckDestroy: testVerifyManagementUnitDestroyed,
 	})
-}
-
-func generateTestBusinessUnit(resourceLabel string, name string) string {
-	return businessUnits.GenerateWorkforcemanagementBusinessUnitResource(
-		resourceLabel,
-		name,
-		businessUnits.GenerateWorkforcemanagementBusinessUnitSettings("Sunday", "Etc/UTC", "", ""),
-	)
-}
-
-func businessUnitIdRef(buResourceLabel string) string {
-	return businessUnits.ResourceType + "." + buResourceLabel + ".id"
 }
 
 func testVerifyManagementUnitDestroyed(state *terraform.State) error {
