@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
 	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/lists"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
 )
 
 const (
@@ -55,7 +56,7 @@ func desiredMembers(schedulable []string, unschedulable []string) []string {
 	for _, id := range unschedulable {
 		members[id] = true
 	}
-	return sortedKeys(members)
+	return wfm.SortedKeys(members)
 }
 
 // diffMembers returns the users to move in and the users to move out so the current members match the desired members
@@ -209,15 +210,6 @@ func toLookup(values []string) map[string]bool {
 		lookup[value] = true
 	}
 	return lookup
-}
-
-func sortedKeys(set map[string]bool) []string {
-	keys := make([]string, 0, len(set))
-	for key := range set {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 // sameMembers reports whether two lists contain the same users, ignoring order
