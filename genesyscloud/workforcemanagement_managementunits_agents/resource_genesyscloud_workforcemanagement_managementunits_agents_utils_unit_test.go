@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mypurecloud/platform-client-sdk-go/v200/platformclientv2"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
 )
 
 func TestUnitDiffMembers(t *testing.T) {
@@ -186,6 +187,12 @@ func TestUnitApplyAgentsRejectsUserInBothSets(t *testing.T) {
 	}
 }
 
+func TestUnitManagementUnitIdChangeDoesNotRecreateTheResource(t *testing.T) {
+	if ResourceManagementUnitAgents().Schema["management_unit_id"].ForceNew {
+		t.Error("changing management_unit_id must move the agents instead of removing and adding them")
+	}
+}
+
 func TestUnitPartitionBySchedulable(t *testing.T) {
 	notSchedulable := false
 	schedulable := true
@@ -204,9 +211,9 @@ func TestUnitPartitionBySchedulable(t *testing.T) {
 }
 
 func TestUnitApplyAgentsTimeoutNamesUsersThatNeverJoined(t *testing.T) {
-	previousTimeout := membershipTimeout
-	membershipTimeout = 2 * time.Second
-	defer func() { membershipTimeout = previousTimeout }()
+	previousTimeout, previousSchedule := membershipTimeout, util.AsyncPollSchedule
+	membershipTimeout, util.AsyncPollSchedule = 200*time.Millisecond, []time.Duration{50 * time.Millisecond}
+	defer func() { membershipTimeout, util.AsyncPollSchedule = previousTimeout, previousSchedule }()
 
 	// The move is accepted but the user never becomes a member, as happens when the move fails permanently after the 202
 	api := &fakeApi{members: nil}
@@ -242,8 +249,8 @@ func TestUnitApplyAgentsSendsLargeMovesAsOneRequest(t *testing.T) {
 	if len(api.movedIn) != 1 || len(api.movedIn[0]) != 250 {
 		t.Errorf("expected a single move request with all 250 users, got %d request(s)", len(api.movedIn))
 	}
-	if len(api.updates) != 3 {
-		t.Errorf("expected the 250 schedulable updates in 3 batches of at most 100, got %d", len(api.updates))
+	if len(api.updates) != 1 || len(api.updates[0]) != 250 {
+		t.Errorf("expected the 250 schedulable updates in a single request, got %d request(s)", len(api.updates))
 	}
 }
 

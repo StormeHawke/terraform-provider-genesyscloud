@@ -40,10 +40,9 @@ func ResourceManagementUnitAgents() *schema.Resource {
 		SchemaVersion: 1,
 		Schema: map[string]*schema.Schema{
 			"management_unit_id": {
-				Description: `The id of the management unit whose agents are managed by this resource. Changing this attribute will cause the resource to be dropped and recreated.`,
+				Description: `The id of the management unit whose agents are managed by this resource. Changing this attribute moves the agents to the new management unit.`,
 				Type:        schema.TypeString,
 				Required:    true,
-				ForceNew:    true,
 			},
 			"schedulable_user_ids": {
 				Description: `The ids of the users that are members of the management unit and can be included in schedule generation. A user can only be listed in one of schedulable_user_ids and unschedulable_user_ids.`,
