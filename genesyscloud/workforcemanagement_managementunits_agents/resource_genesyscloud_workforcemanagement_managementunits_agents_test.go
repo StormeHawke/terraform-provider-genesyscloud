@@ -47,34 +47,28 @@ func TestAccResourceManagementUnitAgents(t *testing.T) {
 		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
 		Steps: []resource.TestStep{
 			{
-				// Two schedulable agents and one unschedulable agent
+				// Three agents
 				Config: baseConfig + GenerateManagementUnitAgentsResource(
 					resourceLabel,
 					managementUnitId,
-					fmt.Sprintf("[%s, %s]", userId("user_1"), userId("user_2")),
-					fmt.Sprintf("[%s]", userId("user_3")),
+					fmt.Sprintf("[%s, %s, %s]", userId("user_1"), userId("user_2"), userId("user_3")),
 				),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrPair(fullResource, "management_unit_id", managementUnits.ResourceType+"."+muResourceLabel, "id"),
-					resource.TestCheckResourceAttr(fullResource, "schedulable_user_ids.#", "2"),
-					resource.TestCheckResourceAttr(fullResource, "unschedulable_user_ids.#", "1"),
-					resource.TestCheckTypeSetElemAttrPair(fullResource, "schedulable_user_ids.*", user.ResourceType+".user_1", "id"),
-					resource.TestCheckTypeSetElemAttrPair(fullResource, "unschedulable_user_ids.*", user.ResourceType+".user_3", "id"),
+					resource.TestCheckResourceAttr(fullResource, "user_ids.#", "3"),
+					resource.TestCheckTypeSetElemAttrPair(fullResource, "user_ids.*", user.ResourceType+".user_1", "id"),
 				),
 			},
 			{
-				// Flip user_2 to unschedulable and remove user_1 from the management unit
+				// Remove user_1 from the management unit
 				Config: baseConfig + GenerateManagementUnitAgentsResource(
 					resourceLabel,
 					managementUnitId,
-					fmt.Sprintf("[%s]", userId("user_3")),
-					fmt.Sprintf("[%s]", userId("user_2")),
+					fmt.Sprintf("[%s, %s]", userId("user_2"), userId("user_3")),
 				),
 				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr(fullResource, "schedulable_user_ids.#", "1"),
-					resource.TestCheckResourceAttr(fullResource, "unschedulable_user_ids.#", "1"),
-					resource.TestCheckTypeSetElemAttrPair(fullResource, "schedulable_user_ids.*", user.ResourceType+".user_3", "id"),
-					resource.TestCheckTypeSetElemAttrPair(fullResource, "unschedulable_user_ids.*", user.ResourceType+".user_2", "id"),
+					resource.TestCheckResourceAttr(fullResource, "user_ids.#", "2"),
+					resource.TestCheckTypeSetElemAttrPair(fullResource, "user_ids.*", user.ResourceType+".user_3", "id"),
 				),
 			},
 			{
