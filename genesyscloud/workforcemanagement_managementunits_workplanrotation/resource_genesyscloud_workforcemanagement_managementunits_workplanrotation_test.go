@@ -60,7 +60,7 @@ func TestAccResourceWorkPlanRotation(t *testing.T) {
 
 	// An agent can only be added to a rotation when it is a member of the management unit
 	agentDependencies := user.GenerateBasicUserResource(userLabel, "terraform-"+uuid.NewString()+"@example.com", "Test User") +
-		managementUnitAgents.GenerateManagementUnitAgentsResource("agents_1", managementUnitId, fmt.Sprintf("[%s]", userId), "[]")
+		managementUnitAgents.GenerateManagementUnitAgentsResource("agents_1", managementUnitId, fmt.Sprintf("[%s]", userId))
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:          func() { util.TestAccPreCheck(t) },
