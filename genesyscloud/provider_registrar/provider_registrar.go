@@ -179,6 +179,7 @@ import (
 	managementUnit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
 	managementUnitAgents "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_agents"
 	managementUnitWorkPlan "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_workplan"
+	managementUnitWorkPlanRotation "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_workplanrotation"
 )
 
 /*
@@ -382,6 +383,7 @@ func registerResources() {
 	managementUnit.SetRegistrar(regInstance)                               //Registering workforce management management unit
 	managementUnitAgents.SetRegistrar(regInstance)                         //Registering workforce management management unit agents
 	managementUnitWorkPlan.SetRegistrar(regInstance)                       //Registering workforce management management unit work plan
+	managementUnitWorkPlanRotation.SetRegistrar(regInstance)               //Registering workforce management management unit work plan rotation
 	workitemDateBasedRule.SetRegistrar(regInstance)                        //Registering task management datebased rule
 	externalContacts.SetRegistrar(regInstance)                             //Registering external contacts
 	externalUser.SetRegistrar(regInstance)                                 //Registering external user identity
