@@ -120,6 +120,7 @@ import (
 	buActivityCode "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_activitycode"
 	buPlanningGroup "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_planninggroup"
 	buServiceGoalTemplate "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_servicegoaltemplate"
+	managementUnit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
 
 	recordingSettings "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/recording_settings"
 	sttCategory "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/speechandtextanalytics_category"
@@ -251,6 +252,7 @@ func (r *registerTestInstance) registerTestResources() {
 	providerResources[buActivityCode.ResourceType] = buActivityCode.ResourceBusinessUnitActivityCode()
 	providerResources[buServiceGoalTemplate.ResourceType] = buServiceGoalTemplate.ResourceServiceGoalTemplate()
 	providerResources[buPlanningGroup.ResourceType] = buPlanningGroup.ResourcePlanningGroup()
+	providerResources[managementUnit.ResourceType] = managementUnit.ResourceManagementUnit()
 	providerResources[cMessagingOpen.ResourceType] = cMessagingOpen.ResourceConversationsMessagingIntegrationsOpen()
 	providerResources[externalOrganization.ResourceType] = externalOrganization.ResourceExternalContactsOrganization()
 	providerResources[knowledgeCategory.ResourceType] = knowledgeCategory.ResourceKnowledgeCategory()
@@ -380,6 +382,7 @@ func (r *registerTestInstance) registerTestExporters() {
 	RegisterExporter(buActivityCode.ResourceType, buActivityCode.BusinessUnitActivityCodeExporter())
 	RegisterExporter(buServiceGoalTemplate.ResourceType, buServiceGoalTemplate.ServiceGoalTemplateExporter())
 	RegisterExporter(buPlanningGroup.ResourceType, buPlanningGroup.PlanningGroupExporter())
+	RegisterExporter(managementUnit.ResourceType, managementUnit.ManagementUnitExporter())
 	RegisterExporter(supportedContent.ResourceType, supportedContent.SupportedContentExporter())
 	RegisterExporter(defaultSupportedContent.ResourceType, defaultSupportedContent.ConversationsMessagingSupportedcontentDefaultExporter())
 	RegisterExporter(cMessagingOpen.ResourceType, cMessagingOpen.ConversationsMessagingIntegrationsOpenExporter())

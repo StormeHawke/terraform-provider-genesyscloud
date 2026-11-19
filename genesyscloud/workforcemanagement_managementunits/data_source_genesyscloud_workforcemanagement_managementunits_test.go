@@ -1,0 +1,47 @@
+package workforcemanagement_managementunits
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/provider"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util"
+	"github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/util/wfm"
+)
+
+func TestAccDataSourceManagementUnit(t *testing.T) {
+	var (
+		buResourceLabel = "bu_1"
+		buName          = "TestBU" + uuid.NewString()
+		resourceLabel   = "management_unit_1"
+		dataSourceLabel = "management_unit_data"
+		name            = "Test MU " + uuid.NewString()
+	)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:          func() { util.TestAccPreCheck(t) },
+		ProviderFactories: provider.GetProviderFactories(providerResources, providerDataSources),
+		Steps: []resource.TestStep{
+			{
+				Config: wfm.GenerateTestBusinessUnit(buResourceLabel, buName) +
+					GenerateManagementUnitResource(resourceLabel, name, wfm.BusinessUnitIdRef(buResourceLabel)) +
+					generateManagementUnitDataSource(dataSourceLabel, wfm.BusinessUnitIdRef(buResourceLabel), name, ResourceType+"."+resourceLabel),
+				Check: resource.TestCheckResourceAttrPair(
+					"data."+ResourceType+"."+dataSourceLabel, "id",
+					ResourceType+"."+resourceLabel, "id",
+				),
+			},
+		},
+	})
+}
+
+func generateManagementUnitDataSource(dataSourceLabel string, businessUnitId string, name string, dependsOn string) string {
+	return fmt.Sprintf(`data "%s" "%s" {
+	business_unit_id = %s
+	name             = "%s"
+	depends_on       = [%s]
+}
+`, ResourceType, dataSourceLabel, businessUnitId, name, dependsOn)
+}

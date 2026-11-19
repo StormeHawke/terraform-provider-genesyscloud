@@ -176,6 +176,7 @@ import (
 	buActivityCode "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_activitycode"
 	buPlanningGroup "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_planninggroup"
 	buServiceGoalTemplate "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_servicegoaltemplate"
+	managementUnit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
 )
 
 /*
@@ -376,6 +377,7 @@ func registerResources() {
 	buActivityCode.SetRegistrar(regInstance)                               //Registering workforce management business unit activity code
 	buServiceGoalTemplate.SetRegistrar(regInstance)                        //Registering workforce management business unit service goal template
 	buPlanningGroup.SetRegistrar(regInstance)                              //Registering workforce management business unit planning group
+	managementUnit.SetRegistrar(regInstance)                               //Registering workforce management management unit
 	workitemDateBasedRule.SetRegistrar(regInstance)                        //Registering task management datebased rule
 	externalContacts.SetRegistrar(regInstance)                             //Registering external contacts
 	externalUser.SetRegistrar(regInstance)                                 //Registering external user identity
