@@ -120,6 +120,8 @@ import (
 	buActivityCode "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_activitycode"
 	buPlanningGroup "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_planninggroup"
 	buServiceGoalTemplate "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_servicegoaltemplate"
+	buTimeOffLimit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_timeofflimit"
+	buTimeOffPlan "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_timeoffplan"
 	managementUnit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
 	managementUnitAgents "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_agents"
 	managementUnitWorkPlan "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_workplan"
@@ -259,6 +261,8 @@ func (r *registerTestInstance) registerTestResources() {
 	providerResources[managementUnitAgents.ResourceType] = managementUnitAgents.ResourceManagementUnitAgents()
 	providerResources[managementUnitWorkPlan.ResourceType] = managementUnitWorkPlan.ResourceWorkPlan()
 	providerResources[managementUnitWorkPlanRotation.ResourceType] = managementUnitWorkPlanRotation.ResourceWorkPlanRotation()
+	providerResources[buTimeOffLimit.ResourceType] = buTimeOffLimit.ResourceTimeOffLimit()
+	providerResources[buTimeOffPlan.ResourceType] = buTimeOffPlan.ResourceTimeOffPlan()
 	providerResources[cMessagingOpen.ResourceType] = cMessagingOpen.ResourceConversationsMessagingIntegrationsOpen()
 	providerResources[externalOrganization.ResourceType] = externalOrganization.ResourceExternalContactsOrganization()
 	providerResources[knowledgeCategory.ResourceType] = knowledgeCategory.ResourceKnowledgeCategory()
@@ -392,6 +396,8 @@ func (r *registerTestInstance) registerTestExporters() {
 	RegisterExporter(managementUnitAgents.ResourceType, managementUnitAgents.ManagementUnitAgentsExporter())
 	RegisterExporter(managementUnitWorkPlan.ResourceType, managementUnitWorkPlan.WorkPlanExporter())
 	RegisterExporter(managementUnitWorkPlanRotation.ResourceType, managementUnitWorkPlanRotation.WorkPlanRotationExporter())
+	RegisterExporter(buTimeOffLimit.ResourceType, buTimeOffLimit.TimeOffLimitExporter())
+	RegisterExporter(buTimeOffPlan.ResourceType, buTimeOffPlan.TimeOffPlanExporter())
 	RegisterExporter(supportedContent.ResourceType, supportedContent.SupportedContentExporter())
 	RegisterExporter(defaultSupportedContent.ResourceType, defaultSupportedContent.ConversationsMessagingSupportedcontentDefaultExporter())
 	RegisterExporter(cMessagingOpen.ResourceType, cMessagingOpen.ConversationsMessagingIntegrationsOpenExporter())
