@@ -2,13 +2,13 @@
 page_title: "genesyscloud_workforcemanagement_managementunits_agents Resource - terraform-provider-genesyscloud"
 subcategory: ""
 description: |-
-  Manages the agents of a Genesys Cloud workforce management management unit. This resource is authoritative for the management unit: any user that is a member of the management unit but is not listed in schedulable_user_ids or unschedulable_user_ids is removed from it, and an agent can only belong to one management unit, so listing a user here moves them out of their current management unit. Do not manage the same user from more than one of these resources. Destroying this resource removes the agents it manages from the management unit; it does not delete the management unit or the users. Agents are moved asynchronously, so applying can take a few minutes.
+  Manages the agents of a Genesys Cloud workforce management management unit. This resource is authoritative for the management unit: any user that is a member of the management unit but is not listed in user_ids is removed from it, and an agent can only belong to one management unit, so listing a user here moves them out of their current management unit. Do not manage the same user from more than one of these resources. Destroying this resource removes the agents it manages from the management unit; it does not delete the management unit or the users. Agents are moved asynchronously, so applying can take a few minutes.
 ---
 # genesyscloud_workforcemanagement_managementunits_agents (Resource)
 
 <!-- This document is automatically generated. Do not edit manually. Make changes to the schema, examples, or apis.md files in examples/resources/ and run 'make docs' to regenerate. -->
 
-Manages the agents of a Genesys Cloud workforce management management unit. This resource is authoritative for the management unit: any user that is a member of the management unit but is not listed in schedulable_user_ids or unschedulable_user_ids is removed from it, and an agent can only belong to one management unit, so listing a user here moves them out of their current management unit. Do not manage the same user from more than one of these resources. Destroying this resource removes the agents it manages from the management unit; it does not delete the management unit or the users. Agents are moved asynchronously, so applying can take a few minutes.
+Manages the agents of a Genesys Cloud workforce management management unit. This resource is authoritative for the management unit: any user that is a member of the management unit but is not listed in user_ids is removed from it, and an agent can only belong to one management unit, so listing a user here moves them out of their current management unit. Do not manage the same user from more than one of these resources. Destroying this resource removes the agents it manages from the management unit; it does not delete the management unit or the users. Agents are moved asynchronously, so applying can take a few minutes.
 
 ## API Usage
 
@@ -16,8 +16,6 @@ The following Genesys Cloud APIs are used by this resource. Ensure your OAuth Cl
 
 * [POST /api/v2/workforcemanagement/agents](https://developer.genesys.cloud/devapps/api-explorer#post-api-v2-workforcemanagement-agents)
 * [GET /api/v2/workforcemanagement/managementunits](https://developer.genesys.cloud/devapps/api-explorer#get-api-v2-workforcemanagement-managementunits)
-* [PATCH /api/v2/workforcemanagement/managementunits/{managementUnitId}/agents](https://developer.genesys.cloud/devapps/api-explorer#patch-api-v2-workforcemanagement-managementunits--managementUnitId--agents)
-* [GET /api/v2/workforcemanagement/managementunits/{managementUnitId}/agents/{agentId}](https://developer.genesys.cloud/devapps/api-explorer#get-api-v2-workforcemanagement-managementunits--managementUnitId--agents--agentId-)
 * [GET /api/v2/workforcemanagement/managementunits/{managementUnitId}/users](https://developer.genesys.cloud/devapps/api-explorer#get-api-v2-workforcemanagement-managementunits--managementUnitId--users)
 
 ## Permissions and Scopes
@@ -47,11 +45,8 @@ The following OAuth scopes are required to use this resource:
 resource "genesyscloud_workforcemanagement_managementunits_agents" "example_agents" {
   management_unit_id = genesyscloud_workforcemanagement_managementunits.example_management_unit.id
 
-  schedulable_user_ids = [
+  user_ids = [
     genesyscloud_user.example_user.id,
-  ]
-
-  unschedulable_user_ids = [
     genesyscloud_user.example_user2.id,
   ]
 }
@@ -66,8 +61,7 @@ resource "genesyscloud_workforcemanagement_managementunits_agents" "example_agen
 
 ### Optional
 
-- `schedulable_user_ids` (Set of String) The ids of the users that are members of the management unit and can be included in schedule generation. A user can only be listed in one of schedulable_user_ids and unschedulable_user_ids.
-- `unschedulable_user_ids` (Set of String) The ids of the users that are members of the management unit but cannot be included in schedule generation. A user can only be listed in one of schedulable_user_ids and unschedulable_user_ids.
+- `user_ids` (Set of String) The ids of the users that are agents of the management unit. This is authoritative for the management unit: a user that is a member of it but is not listed is removed from it, and an agent can only belong to one management unit, so listing a user here moves them out of their current management unit.
 
 ### Read-Only
 

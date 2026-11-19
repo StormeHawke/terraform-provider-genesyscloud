@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -22,7 +21,11 @@ import (
 	NOTE: This resource's Id is the id of the management unit, because the resource represents the membership of the whole management unit.
 
 	Moving agents in and out of a management unit is asynchronous (the api answers 202), so after each move the members are
-	polled until they match. The schedulable flag can only be written for users that are already members, so it is applied last.
+	polled until they match.
+
+	The resource manages only which users are agents of the management unit. The schedulable flag of an agent is not managed yet, because
+	the public api can only read it one agent at a time. When it is added it will be new optional attributes next to user_ids,
+	so this resource will not change for the people who use it today.
 */
 
 /*
@@ -62,11 +65,10 @@ func createManagementUnitAgents(ctx context.Context, d *schema.ResourceData, met
 	proxy := getManagementUnitAgentsProxy(sdkConfig)
 	managementUnitId := d.Get("management_unit_id").(string)
 
-	schedulable := setToSlice(d.Get("schedulable_user_ids").(*schema.Set))
-	unschedulable := setToSlice(d.Get("unschedulable_user_ids").(*schema.Set))
+	userIds := setToSlice(d.Get("user_ids").(*schema.Set))
 
 	log.Printf("Adding agents to management unit %s", managementUnitId)
-	if diagErr := applyAgents(ctx, proxy, managementUnitId, schedulable, unschedulable, nil, nil); diagErr != nil {
+	if diagErr := applyAgents(ctx, proxy, managementUnitId, userIds); diagErr != nil {
 		return diagErr
 	}
 
@@ -90,14 +92,8 @@ func readManagementUnitAgents(ctx context.Context, d *schema.ResourceData, meta 
 			return retry.NonRetryableError(util.BuildWithRetriesApiDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s: %s", d.Id(), getErr), resp))
 		}
 
-		schedulable, unschedulable, partitionErr := partitionBySchedulable(ctx, proxy, d.Id(), members)
-		if partitionErr != nil {
-			return retry.NonRetryableError(partitionErr)
-		}
-
 		_ = d.Set("management_unit_id", d.Id())
-		_ = d.Set("schedulable_user_ids", sliceToSet(schedulable))
-		_ = d.Set("unschedulable_user_ids", sliceToSet(unschedulable))
+		_ = d.Set("user_ids", sliceToSet(members))
 
 		log.Printf("Read agents of management unit %s", d.Id())
 		return cc.CheckState(d)
@@ -111,17 +107,10 @@ func updateManagementUnitAgents(ctx context.Context, d *schema.ResourceData, met
 	proxy := getManagementUnitAgentsProxy(sdkConfig)
 	managementUnitId := d.Get("management_unit_id").(string)
 
-	oldSchedulable, newSchedulable := d.GetChange("schedulable_user_ids")
-	oldUnschedulable, newUnschedulable := d.GetChange("unschedulable_user_ids")
-	previousSchedulable, previousUnschedulable := setToSlice(oldSchedulable.(*schema.Set)), setToSlice(oldUnschedulable.(*schema.Set))
-	if d.HasChange("management_unit_id") {
-		previousSchedulable, previousUnschedulable = nil, nil
-	}
+	userIds := setToSlice(d.Get("user_ids").(*schema.Set))
 
 	log.Printf("Updating agents of management unit %s", managementUnitId)
-	if diagErr := applyAgents(ctx, proxy, managementUnitId,
-		setToSlice(newSchedulable.(*schema.Set)), setToSlice(newUnschedulable.(*schema.Set)),
-		previousSchedulable, previousUnschedulable); diagErr != nil {
+	if diagErr := applyAgents(ctx, proxy, managementUnitId, userIds); diagErr != nil {
 		return diagErr
 	}
 
@@ -136,7 +125,7 @@ func deleteManagementUnitAgents(ctx context.Context, d *schema.ResourceData, met
 	sdkConfig := meta.(*provider.ProviderMeta).ClientConfig
 	proxy := getManagementUnitAgentsProxy(sdkConfig)
 
-	managed := desiredMembers(setToSlice(d.Get("schedulable_user_ids").(*schema.Set)), setToSlice(d.Get("unschedulable_user_ids").(*schema.Set)))
+	managed := setToSlice(d.Get("user_ids").(*schema.Set))
 
 	log.Printf("Removing agents from management unit %s", d.Id())
 	members, resp, err := proxy.getMembers(ctx, d.Id())
@@ -164,15 +153,8 @@ func deleteManagementUnitAgents(ctx context.Context, d *schema.ResourceData, met
 	return nil
 }
 
-// applyAgents makes the members of the management unit match the desired schedulable and unschedulable users.
-// The old users are the previously applied ones, and only users that changed set have their schedulable flag written.
-func applyAgents(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, schedulable []string, unschedulable []string, oldSchedulable []string, oldUnschedulable []string) diag.Diagnostics {
-	if shared := overlap(schedulable, unschedulable); len(shared) > 0 {
-		errorMsg := fmt.Sprintf("Users cannot be both schedulable and unschedulable in management unit %s: %s", managementUnitId, strings.Join(shared, ", "))
-		return util.BuildDiagnosticError(ResourceType, errorMsg, fmt.Errorf("%s", errorMsg))
-	}
-
-	desired := desiredMembers(schedulable, unschedulable)
+// applyAgents makes the members of the management unit match the desired users
+func applyAgents(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, desired []string) diag.Diagnostics {
 	current, resp, err := proxy.getMembers(ctx, managementUnitId)
 	if err != nil {
 		return util.BuildAPIDiagnosticError(ResourceType, fmt.Sprintf("Failed to read agents of management unit %s: %s", managementUnitId, err), resp)
@@ -190,13 +172,9 @@ func applyAgents(ctx context.Context, proxy *managementUnitAgentsProxy, manageme
 		}
 	}
 	if len(toAdd) > 0 || len(toRemove) > 0 {
-		if diagErr := waitForMembers(ctx, proxy, managementUnitId, desired); diagErr != nil {
-			return diagErr
-		}
+		return waitForMembers(ctx, proxy, managementUnitId, desired)
 	}
-
-	makeSchedulable, makeUnschedulable := usersNeedingScheduleUpdate(oldSchedulable, oldUnschedulable, schedulable, unschedulable)
-	return updateSchedulable(ctx, proxy, managementUnitId, buildScheduleUpdates(makeSchedulable, makeUnschedulable))
+	return nil
 }
 
 // moveAgents moves the users into the destination management unit, or out of their management unit when the destination is nil, in as few requests as the move limit allows
@@ -211,32 +189,6 @@ func moveAgents(ctx context.Context, proxy *managementUnitAgentsProxy, userIds [
 		}
 	}
 	return nil
-}
-
-// updateSchedulable writes the schedulable flag in a single request. The api rejects users that are not yet members, so a membership
-// that has not settled is polled until the update is accepted.
-func updateSchedulable(ctx context.Context, proxy *managementUnitAgentsProxy, managementUnitId string, updates []platformclientv2.Updatemuagentrequest) diag.Diagnostics {
-	if len(updates) == 0 {
-		return nil
-	}
-
-	send := func() (string, diag.Diagnostics) {
-		resp, err := proxy.updateAgents(ctx, managementUnitId, updates)
-		if err == nil {
-			return "", nil
-		}
-		message := fmt.Sprintf("Failed to update agents of management unit %s: %s", managementUnitId, err)
-		if resp != nil && strings.Contains(strings.ToLower(resp.ErrorMessage), "not found") {
-			return message, nil
-		}
-		return "", util.BuildAPIDiagnosticError(ResourceType, message, resp)
-	}
-
-	pending, diagErr := send()
-	if diagErr != nil || pending == "" {
-		return diagErr
-	}
-	return util.PollUntilDone(ctx, util.UpdateRetryTimeout, send)
 }
 
 // waitForMembers waits until the management unit has exactly the desired members.
