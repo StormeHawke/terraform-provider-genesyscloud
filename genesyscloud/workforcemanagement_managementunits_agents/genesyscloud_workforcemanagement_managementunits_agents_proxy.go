@@ -18,9 +18,7 @@ var internalProxy *managementUnitAgentsProxy
 
 // Type definitions for each func on our proxy so we can easily mock them out later
 type getMembersFunc func(ctx context.Context, p *managementUnitAgentsProxy, managementUnitId string) ([]string, *platformclientv2.APIResponse, error)
-type getAgentSchedulableFunc func(ctx context.Context, p *managementUnitAgentsProxy, managementUnitId string, userId string) (*bool, *platformclientv2.APIResponse, error)
 type moveAgentsFunc func(ctx context.Context, p *managementUnitAgentsProxy, userIds []string, destinationManagementUnitId *string) (*platformclientv2.Moveagentsresponse, *platformclientv2.APIResponse, error)
-type updateAgentsFunc func(ctx context.Context, p *managementUnitAgentsProxy, managementUnitId string, agents []platformclientv2.Updatemuagentrequest) (*platformclientv2.APIResponse, error)
 type getAllManagementUnitsFunc func(ctx context.Context, p *managementUnitAgentsProxy) (*[]platformclientv2.Managementunit, *platformclientv2.APIResponse, error)
 
 // managementUnitAgentsProxy contains all the methods that call genesys cloud APIs.
@@ -28,9 +26,7 @@ type managementUnitAgentsProxy struct {
 	clientConfig              *platformclientv2.Configuration
 	workforceManagementApi    *platformclientv2.WorkforceManagementApi
 	getMembersAttr            getMembersFunc
-	getAgentSchedulableAttr   getAgentSchedulableFunc
 	moveAgentsAttr            moveAgentsFunc
-	updateAgentsAttr          updateAgentsFunc
 	getAllManagementUnitsAttr getAllManagementUnitsFunc
 }
 
@@ -41,9 +37,7 @@ func newManagementUnitAgentsProxy(clientConfig *platformclientv2.Configuration) 
 		clientConfig:              clientConfig,
 		workforceManagementApi:    api,
 		getMembersAttr:            getMembersFn,
-		getAgentSchedulableAttr:   getAgentSchedulableFn,
 		moveAgentsAttr:            moveAgentsFn,
-		updateAgentsAttr:          updateAgentsFn,
 		getAllManagementUnitsAttr: getAllManagementUnitsFn,
 	}
 }
@@ -63,19 +57,9 @@ func (p *managementUnitAgentsProxy) getMembers(ctx context.Context, managementUn
 	return p.getMembersAttr(ctx, p, managementUnitId)
 }
 
-// getAgentSchedulable returns whether an agent of a management unit can be included in schedule generation
-func (p *managementUnitAgentsProxy) getAgentSchedulable(ctx context.Context, managementUnitId string, userId string) (*bool, *platformclientv2.APIResponse, error) {
-	return p.getAgentSchedulableAttr(ctx, p, managementUnitId, userId)
-}
-
 // moveAgents moves users into a management unit, or out of their management unit when the destination is nil
 func (p *managementUnitAgentsProxy) moveAgents(ctx context.Context, userIds []string, destinationManagementUnitId *string) (*platformclientv2.Moveagentsresponse, *platformclientv2.APIResponse, error) {
 	return p.moveAgentsAttr(ctx, p, userIds, destinationManagementUnitId)
-}
-
-// updateAgents updates the configuration of agents that are already members of a management unit
-func (p *managementUnitAgentsProxy) updateAgents(ctx context.Context, managementUnitId string, agents []platformclientv2.Updatemuagentrequest) (*platformclientv2.APIResponse, error) {
-	return p.updateAgentsAttr(ctx, p, managementUnitId, agents)
 }
 
 // getAllManagementUnits retrieves all Genesys Cloud management units. Used by the exporter.
@@ -97,27 +81,12 @@ func getMembersFn(ctx context.Context, p *managementUnitAgentsProxy, managementU
 	return userIds, resp, nil
 }
 
-// getAgentSchedulableFn is an implementation of the function to read the schedulable flag of an agent.
-// The api has no public route that lists agents with their configuration, so each agent is read individually without its capabilities.
-func getAgentSchedulableFn(ctx context.Context, p *managementUnitAgentsProxy, managementUnitId string, userId string) (*bool, *platformclientv2.APIResponse, error) {
-	agent, resp, err := p.workforceManagementApi.GetWorkforcemanagementManagementunitAgent(managementUnitId, userId, true, nil)
-	if err != nil {
-		return nil, resp, err
-	}
-	return agent.Schedulable, resp, nil
-}
-
 // moveAgentsFn is an implementation of the function to move agents in and out of a management unit
 func moveAgentsFn(ctx context.Context, p *managementUnitAgentsProxy, userIds []string, destinationManagementUnitId *string) (*platformclientv2.Moveagentsresponse, *platformclientv2.APIResponse, error) {
 	return p.workforceManagementApi.PostWorkforcemanagementAgents(platformclientv2.Moveagentsrequest{
 		UserIds:                     &userIds,
 		DestinationManagementUnitId: destinationManagementUnitId,
 	})
-}
-
-// updateAgentsFn is an implementation of the function to update the configuration of agents in a management unit
-func updateAgentsFn(ctx context.Context, p *managementUnitAgentsProxy, managementUnitId string, agents []platformclientv2.Updatemuagentrequest) (*platformclientv2.APIResponse, error) {
-	return p.workforceManagementApi.PatchWorkforcemanagementManagementunitAgents(managementUnitId, platformclientv2.Updatemuagentsrequest{Entities: &agents})
 }
 
 // getAllManagementUnitsFn is an implementation of the function to list Genesys Cloud management units
