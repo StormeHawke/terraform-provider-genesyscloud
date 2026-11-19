@@ -129,7 +129,7 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 }
 
 // moveTimeout is how long to wait for the asynchronous move of a management unit to another business unit
-const moveTimeout = 15 * time.Minute
+const moveTimeout = 5 * time.Minute
 
 // moveManagementUnitToBusinessUnit moves the management unit to another business unit. The move is processed asynchronously,
 // so it waits until the management unit reports the new business unit.
@@ -157,7 +157,7 @@ func waitForManagementUnitMove(ctx context.Context, proxy *managementUnitProxy, 
 			log.Printf("Moved management unit %s to business unit %s", managementUnitId, businessUnitId)
 			return "", nil
 		}
-		return fmt.Sprintf("management unit %s was not moved to business unit %s. The service may have rejected the move, for example because a management unit with the same name exists in the target business unit or a limit was reached", managementUnitId, businessUnitId), nil
+		return fmt.Sprintf("management unit %s was not moved to business unit %s. The move may still be in progress, or the service may have rejected it, for example because a management unit with the same name exists in the target business unit or a limit was reached", managementUnitId, businessUnitId), nil
 	})
 }
 
