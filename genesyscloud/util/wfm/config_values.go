@@ -11,6 +11,10 @@ import (
 Resources with many Optional and Computed attributes send only the values that are present in the configuration, because a value
 the user did not configure must not be sent as a zero value. Presence is read from the raw configuration instead of from the merged
 resource data, and these functions read it.
+
+The raw configuration is made of cty values. cty is the library that Terraform uses for the types and values of a configuration:
+a value can be null (not in the configuration), unknown (not known until apply), or set, and a number is always a big float.
+The functions here turn those values into pointers, where nil means that the attribute is not present.
 */
 
 // DateLayout is the layout of the dates in the configuration and in the api

@@ -129,7 +129,7 @@ func updateManagementUnit(ctx context.Context, d *schema.ResourceData, meta inte
 }
 
 // moveTimeout is how long to wait for the asynchronous move of a management unit to another business unit
-const moveTimeout = 5 * time.Minute
+const moveTimeout = 15 * time.Minute
 
 // moveManagementUnitToBusinessUnit moves the management unit to another business unit. The move is processed asynchronously,
 // so it waits until the management unit reports the new business unit.
