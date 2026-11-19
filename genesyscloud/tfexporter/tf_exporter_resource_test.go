@@ -122,6 +122,7 @@ import (
 	buServiceGoalTemplate "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_businessunits_servicegoaltemplate"
 	managementUnit "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits"
 	managementUnitAgents "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_agents"
+	managementUnitWorkPlan "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/workforcemanagement_managementunits_workplan"
 
 	recordingSettings "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/recording_settings"
 	sttCategory "github.com/mypurecloud/terraform-provider-genesyscloud/genesyscloud/speechandtextanalytics_category"
@@ -255,6 +256,7 @@ func (r *registerTestInstance) registerTestResources() {
 	providerResources[buPlanningGroup.ResourceType] = buPlanningGroup.ResourcePlanningGroup()
 	providerResources[managementUnit.ResourceType] = managementUnit.ResourceManagementUnit()
 	providerResources[managementUnitAgents.ResourceType] = managementUnitAgents.ResourceManagementUnitAgents()
+	providerResources[managementUnitWorkPlan.ResourceType] = managementUnitWorkPlan.ResourceWorkPlan()
 	providerResources[cMessagingOpen.ResourceType] = cMessagingOpen.ResourceConversationsMessagingIntegrationsOpen()
 	providerResources[externalOrganization.ResourceType] = externalOrganization.ResourceExternalContactsOrganization()
 	providerResources[knowledgeCategory.ResourceType] = knowledgeCategory.ResourceKnowledgeCategory()
@@ -386,6 +388,7 @@ func (r *registerTestInstance) registerTestExporters() {
 	RegisterExporter(buPlanningGroup.ResourceType, buPlanningGroup.PlanningGroupExporter())
 	RegisterExporter(managementUnit.ResourceType, managementUnit.ManagementUnitExporter())
 	RegisterExporter(managementUnitAgents.ResourceType, managementUnitAgents.ManagementUnitAgentsExporter())
+	RegisterExporter(managementUnitWorkPlan.ResourceType, managementUnitWorkPlan.WorkPlanExporter())
 	RegisterExporter(supportedContent.ResourceType, supportedContent.SupportedContentExporter())
 	RegisterExporter(defaultSupportedContent.ResourceType, defaultSupportedContent.ConversationsMessagingSupportedcontentDefaultExporter())
 	RegisterExporter(cMessagingOpen.ResourceType, cMessagingOpen.ConversationsMessagingIntegrationsOpenExporter())
